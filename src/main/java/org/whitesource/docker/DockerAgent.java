@@ -51,15 +51,15 @@ public class DockerAgent extends CommandLineAgent {
 
     private static final Logger logger = LoggerFactory.getLogger(DockerAgent.class);
 
-    private static final String TEMP_FOLDER = System.getProperty("java.io.tmpdir") + "WhiteSource_Docker";
-    private static final String TAR_SUFFIX = ".tar";
-    private static final int SHORT_CONTAINER_ID_LENGTH = 12;
-    private static final String UNIX_FILE_SEPARATOR = "/";
+    public static final String TEMP_FOLDER = System.getProperty("java.io.tmpdir") + "WhiteSource_Docker";
+    public static final String TAR_SUFFIX = ".tar";
+    public static final int SHORT_CONTAINER_ID_LENGTH = 12;
+    public static final String UNIX_FILE_SEPARATOR = "/";
 
     // docker client configuration
-    private static final int TIMEOUT = 1000;
-    private static final int MAX_TOTAL_CONNECTIONS = 100;
-    private static final int MAX_PER_ROUTE_CONNECTIONS = 10;
+    public static final int TIMEOUT = 1000;
+    public static final int MAX_TOTAL_CONNECTIONS = 100;
+    public static final int MAX_PER_ROUTE_CONNECTIONS = 10;
 
     // property keys for the configuration file
     public static final String DOCKER_URL = "docker.url";
@@ -68,13 +68,16 @@ public class DockerAgent extends CommandLineAgent {
     public static final String DOCKER_PASSWORD = "docker.password";
 
     // directory scanner defaults
-    private static final int ARCHIVE_EXTRACTION_DEPTH = 2;
-    private static final boolean CASE_SENSITIVE_GLOB = false;
-    private static final boolean FOLLOW_SYMLINKS = false;
-    private static final boolean PARTIAL_SHA1_MATCH = false;
+    public static final int ARCHIVE_EXTRACTION_DEPTH = 2;
+    public static final boolean CASE_SENSITIVE_GLOB = false;
+    public static final boolean FOLLOW_SYMLINKS = false;
+    public static final boolean PARTIAL_SHA1_MATCH = false;
 
     public static final String AGENT_TYPE = "docker-agent";
     public static final String AGENT_VERSION = "2.2.6";
+
+    public static final String WINDOWS_PATH_SEPARATOR = "\\";
+    public static final String UNIX_PATH_SEPARATOR = "/";
 
     /* --- Constructors --- */
 
@@ -107,6 +110,9 @@ public class DockerAgent extends CommandLineAgent {
 
     /* --- Private methods --- */
 
+    /**
+     * Build the docker client with all the provided properties.
+     */
     private DockerClient buildDockerClient() {
         DockerClientConfig.DockerClientConfigBuilder configBuilder = DockerClientConfig.createDefaultConfigBuilder();
         String dockerUrl = config.getProperty(DOCKER_URL);
@@ -114,23 +120,23 @@ public class DockerAgent extends CommandLineAgent {
             logger.error("Missing Docker URL");
             return null;
         } else {
-            logger.info("Docker URL is {}", dockerUrl);
+            logger.info("Docker URL: {}", dockerUrl);
             configBuilder.withUri(dockerUrl);
         }
 
         String dockerCertPath = config.getProperty(DOCKER_CERT_PATH);
         if (StringUtils.isNotBlank(dockerCertPath)) {
-            logger.info("Docker cert path is {}", dockerCertPath);
+            logger.info("Docker certificate path: {}", dockerCertPath);
             configBuilder.withDockerCertPath(dockerCertPath);
         }
         String dockerUsername = config.getProperty(DOCKER_USERNAME);
         if (StringUtils.isNotBlank(dockerUsername)) {
-            logger.info("Docker username is {}", dockerUrl);
+            logger.info("Docker username: {}", dockerUrl);
             configBuilder.withUsername(dockerUsername);
         }
         String dockerPassword = config.getProperty(DOCKER_PASSWORD);
         if (StringUtils.isNotBlank(dockerPassword)) {
-            logger.info("Docker password is {}", dockerPassword);
+            logger.info("Docker password: {}", dockerPassword);
             configBuilder.withPassword(dockerPassword);
         }
 
@@ -145,6 +151,11 @@ public class DockerAgent extends CommandLineAgent {
                 .build();
     }
 
+    /**
+     * Create a {@link AgentProjectInfo} for each container:
+     *   1. Run "dpkg -l" and "rpm -qa" to extract the Debian and RPM package names.
+     *   2. Extract the tar archive and scan with the File System Agent.
+     */
     private Collection<AgentProjectInfo> createProjects(DockerClient dockerClient) {
         Collection<AgentProjectInfo> projects = new ArrayList<>();
 
@@ -158,11 +169,11 @@ public class DockerAgent extends CommandLineAgent {
         containers.stream().forEach(container -> {
             String containerId = container.getId().substring(0, SHORT_CONTAINER_ID_LENGTH);
             String containerName = getContainerName(container);
-            logger.info("Processing Container {} ({})", containerId, containerName);
+            logger.info("Processing Container {} ({})", containerName, containerId);
 
             // create agent project info
             AgentProjectInfo projectInfo = new AgentProjectInfo();
-            projectInfo.setCoordinates(new Coordinates(null,  containerName, containerId));
+            projectInfo.setCoordinates(new Coordinates(null, containerName, containerId));
             projects.add(projectInfo);
 
             // get debian packages
@@ -196,9 +207,20 @@ public class DockerAgent extends CommandLineAgent {
                 extractTarArchive(containerTarFile, containerTarExtractDir);
 
                 // scan files
+                String extractPath = containerTarExtractDir.getPath();
                 List<DependencyInfo> dependencyInfos = new FileSystemScanner().createDependencyInfos(
-                        Arrays.asList(containerTarExtractDir.getPath()), null, INCLUDES, EXCLUDES, CASE_SENSITIVE_GLOB,
+                        Arrays.asList(extractPath), null, INCLUDES, EXCLUDES, CASE_SENSITIVE_GLOB,
                         ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, FOLLOW_SYMLINKS, Collections.emptyList(), PARTIAL_SHA1_MATCH);
+
+                // modify file paths relative to the container
+                for (DependencyInfo dependencyInfo : dependencyInfos) {
+                    String systemPath = dependencyInfo.getSystemPath();
+                    if (StringUtils.isNotBlank(systemPath)) {
+                        String containerRelativePath = systemPath.substring(extractPath.length())
+                                .replace(WINDOWS_PATH_SEPARATOR, UNIX_PATH_SEPARATOR);
+                        dependencyInfo.setSystemPath(containerRelativePath);
+                    }
+                }
                 projectInfo.getDependencies().addAll(dependencyInfos);
             } catch (IOException e) {
                 logger.error("Error exporting container {}", containerId);
@@ -213,6 +235,9 @@ public class DockerAgent extends CommandLineAgent {
         return projects;
     }
 
+    /**
+     * Extract matching files from the tar archive.
+     */
     public void extractTarArchive(File containerTarFile, File containerTarExtractDir) {
         TarArchiveInputStream tais = null;
         FileInputStream fis = null;
@@ -248,6 +273,9 @@ public class DockerAgent extends CommandLineAgent {
         }
     }
 
+    /**
+     * Get the container's name.
+     */
     private String getContainerName(Container container) {
         StringBuilder sb = new StringBuilder();
         for (String name : container.getNames()) {
