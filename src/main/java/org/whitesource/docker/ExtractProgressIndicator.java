@@ -35,7 +35,7 @@ public class ExtractProgressIndicator implements Runnable {
     public static final String PROGRESS_BAR_PREFIX = " [";
     public static final String PROGRESS_FILL = "#";
     public static final String EMPTY_STRING = " ";
-    public static final String PROGRESS_BAR_SUFFIX = "] {0}% {1}                       \r";
+    public static final String PROGRESS_BAR_SUFFIX = "] {0}% - {1}                       \r";
     public static final String CLEAR_PROGRESS = "                                                                   \r";
     public static final int REFRESH_RATE = 60;
 

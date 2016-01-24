@@ -80,7 +80,7 @@ public class ContainerPackageExtractor {
         try {
             // parse debian packages
             List<String> lines = IOUtils.readLines(execInputStream);
-            lines.stream().forEach((line) -> {
+            for (String line : lines) {
                 line = line.replaceAll(NON_ASCII_CHARS, EMPTY_STRING);
                 if (line.startsWith(DEBIAN_INSTALLED_PACKAGE_PREFIX)) {
                     List<String> args = new ArrayList<>();
@@ -108,7 +108,7 @@ public class ContainerPackageExtractor {
                                 null, MessageFormat.format(DEBIAN_PACKAGE_PATTERN, name, version, arch), version));
                     }
                 }
-            });
+            }
         } catch (IOException e) {
             logger.warn("Error reading output: {}", e.getMessage());
         }
@@ -135,11 +135,11 @@ public class ContainerPackageExtractor {
         try {
             // parse rpm packages
             List<String> lines = IOUtils.readLines(execInputStream);
-            lines.stream().forEach((line) -> {
+            for (String line : lines) {
                 if (StringUtils.isNotBlank(line)) {
                     rpmPackages.add(new DependencyInfo(null, MessageFormat.format(RPM_PACKAGE_PATTERN, line), null));
                 }
-            });
+            }
         } catch (IOException e) {
             logger.warn("Error reading output: {}", e.getMessage());
         }

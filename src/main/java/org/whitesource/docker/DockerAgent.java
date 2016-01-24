@@ -166,7 +166,7 @@ public class DockerAgent extends CommandLineAgent {
             return projects;
         }
 
-        containers.stream().forEach(container -> {
+        for (Container container : containers) {
             String containerId = container.getId().substring(0, SHORT_CONTAINER_ID_LENGTH);
             String containerName = getContainerName(container);
             logger.info("Processing Container {} ({})", containerName, containerId);
@@ -202,6 +202,7 @@ public class DockerAgent extends CommandLineAgent {
                 new Thread(progressIndicator).start();
                 FileUtils.copyInputStreamToFile(is, containerTarFile);
                 progressIndicator.finished();
+                logger.info("Successfully Exported Container to {}", containerTarFile.getPath());
 
                 // extract tar archive
                 extractTarArchive(containerTarFile, containerTarExtractDir);
@@ -210,7 +211,7 @@ public class DockerAgent extends CommandLineAgent {
                 String extractPath = containerTarExtractDir.getPath();
                 List<DependencyInfo> dependencyInfos = new FileSystemScanner().createDependencyInfos(
                         Arrays.asList(extractPath), null, INCLUDES, EXCLUDES, CASE_SENSITIVE_GLOB,
-                        ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, FOLLOW_SYMLINKS, Collections.emptyList(), PARTIAL_SHA1_MATCH);
+                        ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, FOLLOW_SYMLINKS, new ArrayList<String>(), PARTIAL_SHA1_MATCH);
 
                 // modify file paths relative to the container
                 for (DependencyInfo dependencyInfo : dependencyInfos) {
@@ -231,7 +232,7 @@ public class DockerAgent extends CommandLineAgent {
                 FileUtils.deleteQuietly(containerTarFile);
                 FileUtils.deleteQuietly(containerTarExtractDir);
             }
-        });
+        }
         return projects;
     }
 
