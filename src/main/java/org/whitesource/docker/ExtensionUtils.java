@@ -33,8 +33,8 @@ public class ExtensionUtils {
     public static final String GLOB_PATTERN_PREFIX = "**/*";
 
     public static final List<String> SOURCE_EXTENSIONS = Arrays.asList("js", "php");
-    public static final List<String> BINARY_EXTENSIONS = Arrays.asList("jar", "egg", "tar.gz", "zip", "whl", "gem", "(u)?deb", "(a)?rpm");
-    public static final List<String> ARCHIVE_EXTENSIONS = Arrays.asList("war", "ear", "zip", "whl", "tar.gz", "tar");
+    public static final List<String> BINARY_EXTENSIONS = Arrays.asList("jar", "egg", "tar.gz", "tgz", "zip", "whl", "gem", "(u)?deb", "(a)?rpm");
+    public static final List<String> ARCHIVE_EXTENSIONS = Arrays.asList("war", "ear", "zip", "whl", "tar.gz", "tgz", "tar");
 
     public static final String SOURCE_FILE_PATTERN;
     public static final String BINARY_FILE_PATTERN;

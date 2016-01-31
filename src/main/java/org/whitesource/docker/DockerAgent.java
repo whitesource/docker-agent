@@ -51,7 +51,7 @@ public class DockerAgent extends CommandLineAgent {
 
     private static final Logger logger = LoggerFactory.getLogger(DockerAgent.class);
 
-    public static final String TEMP_FOLDER = System.getProperty("java.io.tmpdir") + "WhiteSource_Docker";
+    public static final String TEMP_FOLDER = System.getProperty("java.io.tmpdir") + File.separator + "WhiteSource_Docker";
     public static final String TAR_SUFFIX = ".tar";
     public static final int SHORT_CONTAINER_ID_LENGTH = 12;
     public static final String UNIX_FILE_SEPARATOR = "/";
@@ -224,9 +224,11 @@ public class DockerAgent extends CommandLineAgent {
                 }
                 projectInfo.getDependencies().addAll(dependencyInfos);
             } catch (IOException e) {
-                logger.error("Error exporting container {}", containerId);
+                logger.error("Error exporting container {}: {}", containerId, e.getMessage());
+                logger.debug("Error exporting container {}", containerId, e);
             } catch (ArchiverException e) {
-                logger.error("Error extracting {}", containerTarFile);
+                logger.error("Error extracting {}: {}", containerTarFile, e.getMessage());
+                logger.debug("Error extracting tar archive", e);
             } finally {
                 IOUtils.closeQuietly(is);
                 FileUtils.deleteQuietly(containerTarFile);
