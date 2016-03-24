@@ -90,10 +90,10 @@ public class ExtractProgressIndicator implements Runnable {
             }
 
             // check if finished, sometimes actual size might be larger than target size
-            if (!finished) {
-                finished = currentSize >= targetSize;
+            if (finished) {
+                break;
             }
-        } while (!finished || currentSize < targetSize);
+        } while (currentSize < targetSize);
 
         // clear progress animation
         System.out.print(CLEAR_PROGRESS);
