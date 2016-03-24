@@ -36,6 +36,7 @@ import org.whitesource.agent.api.model.Coordinates;
 import org.whitesource.agent.api.model.DependencyInfo;
 
 import java.io.*;
+import java.text.MessageFormat;
 import java.util.*;
 
 import static org.whitesource.docker.ExtensionUtils.*;
@@ -51,10 +52,13 @@ public class DockerAgent extends CommandLineAgent {
 
     private static final Logger logger = LoggerFactory.getLogger(DockerAgent.class);
 
-    public static final String TEMP_FOLDER = System.getProperty("java.io.tmpdir") + File.separator + "WhiteSource_Docker";
+    public static final String TEMP_FOLDER = System.getProperty("java.io.tmpdir") + File.separator + "WhiteSource-Docker";
+    public static final String ARCHIVE_EXTRACTOR_TEMP_FOLDER = System.getProperty("java.io.tmpdir") + File.separator + "WhiteSource-ArchiveExtractor";
     public static final String TAR_SUFFIX = ".tar";
     public static final int SHORT_CONTAINER_ID_LENGTH = 12;
     public static final String UNIX_FILE_SEPARATOR = "/";
+    public static final String DOCKER_NAME_FORMAT_STRING = "{0} {1} ({2})";
+    public static final MessageFormat DOCKER_NAME_FORMAT = new MessageFormat(DOCKER_NAME_FORMAT_STRING);
 
     // docker client configuration
     public static final int TIMEOUT = 1000;
@@ -169,11 +173,12 @@ public class DockerAgent extends CommandLineAgent {
         for (Container container : containers) {
             String containerId = container.getId().substring(0, SHORT_CONTAINER_ID_LENGTH);
             String containerName = getContainerName(container);
-            logger.info("Processing Container {} ({})", containerName, containerId);
+            String image = container.getImage();
+            logger.info("Processing Container {} {} ({})", image, containerId, containerName);
 
             // create agent project info
             AgentProjectInfo projectInfo = new AgentProjectInfo();
-            projectInfo.setCoordinates(new Coordinates(null, containerName, containerId));
+            projectInfo.setCoordinates(new Coordinates(null, DOCKER_NAME_FORMAT.format(DOCKER_NAME_FORMAT_STRING, image, containerId, containerName), null));
             projects.add(projectInfo);
 
             // get debian packages
@@ -193,6 +198,10 @@ public class DockerAgent extends CommandLineAgent {
             // export container tar file
             File containerTarFile = new File(TEMP_FOLDER, containerName + TAR_SUFFIX);
             File containerTarExtractDir = new File(TEMP_FOLDER, containerName);
+            containerTarExtractDir.mkdir();
+            File containerTarArchiveExtractDir = new File(ARCHIVE_EXTRACTOR_TEMP_FOLDER, containerName);
+            containerTarArchiveExtractDir.mkdir();
+
             logger.info("Exporting Container to {} (may take a few minutes)", containerTarFile.getPath());
             ExportContainerCmd exportContainerCmd = dockerClient.exportContainerCmd(containerId);
             InputStream is = exportContainerCmd.exec();
@@ -233,6 +242,7 @@ public class DockerAgent extends CommandLineAgent {
                 IOUtils.closeQuietly(is);
                 FileUtils.deleteQuietly(containerTarFile);
                 FileUtils.deleteQuietly(containerTarExtractDir);
+                FileUtils.deleteQuietly(containerTarArchiveExtractDir);
             }
         }
         return projects;
