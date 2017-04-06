@@ -61,7 +61,7 @@ public class DockerAgent extends CommandLineAgent {
     public static final MessageFormat DOCKER_NAME_FORMAT = new MessageFormat(DOCKER_NAME_FORMAT_STRING);
 
     // docker client configuration
-    public static final int TIMEOUT = 1000;
+    public static final int TIMEOUT = 300000;
     public static final int MAX_TOTAL_CONNECTIONS = 100;
     public static final int MAX_PER_ROUTE_CONNECTIONS = 10;
 
@@ -70,6 +70,8 @@ public class DockerAgent extends CommandLineAgent {
     public static final String DOCKER_CERT_PATH = "docker.certPath";
     public static final String DOCKER_USERNAME = "docker.username";
     public static final String DOCKER_PASSWORD = "docker.password";
+    public static final String DOCKER_READ_TIMEOUT = "docker.readTimeOut";
+    public static final String DOCKER_CONNECTION_TIMEOUT = "docker.connectionTimeOut";
 
     // directory scanner defaults
     public static final int ARCHIVE_EXTRACTION_DEPTH = 2;
@@ -143,10 +145,13 @@ public class DockerAgent extends CommandLineAgent {
             logger.info("Docker password: {}", dockerPassword);
             configBuilder.withPassword(dockerPassword);
         }
-
+        Integer readTimeOut = Integer.parseInt(config.getProperty(DOCKER_READ_TIMEOUT, String.valueOf(TIMEOUT)));
+        Integer connectionTimeOut = Integer.parseInt(config.getProperty(DOCKER_CONNECTION_TIMEOUT, String.valueOf(TIMEOUT)));
+        logger.info("Read timeout is set to {}", ""+ readTimeOut);
+        logger.info("Connection timeout is set to {}", ""+ connectionTimeOut);
         DockerCmdExecFactoryImpl dockerCmdExecFactory = new DockerCmdExecFactoryImpl()
-                .withReadTimeout(TIMEOUT)
-                .withConnectTimeout(TIMEOUT)
+                .withReadTimeout(readTimeOut)
+                .withConnectTimeout(connectionTimeOut)
                 .withMaxTotalConnections(MAX_TOTAL_CONNECTIONS)
                 .withMaxPerRouteConnections(MAX_PER_ROUTE_CONNECTIONS);
 
