@@ -17,6 +17,8 @@ package org.whitesource.docker;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ExportContainerCmd;
+import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
@@ -85,10 +87,19 @@ public class DockerAgent extends CommandLineAgent {
     public static final String WINDOWS_PATH_SEPARATOR = "\\";
     public static final String UNIX_PATH_SEPARATOR = "/";
 
+    /* --- Members --- */
+
+    protected final String dockerImage;
+
     /* --- Constructors --- */
 
     public DockerAgent(Properties config) {
+        this(config,"");
+    }
+
+    public DockerAgent(Properties config, String dockerImage) {
         super(config);
+        this.dockerImage=dockerImage;        
     }
 
     /* --- Overridden methods --- */
@@ -168,6 +179,23 @@ public class DockerAgent extends CommandLineAgent {
     private Collection<AgentProjectInfo> createProjects(DockerClient dockerClient) {
         Collection<AgentProjectInfo> projects = new ArrayList<>();
 
+        // need to block until image is pulled completely
+        if(!this.dockerImage.isEmpty()) {
+          logger.info("Pulling image '{}'", this.dockerImage);
+          dockerClient.pullImageCmd(this.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
+          logger.info("Creating container");
+        }
+
+        final CreateContainerResponse forcedContainer = this.dockerImage.isEmpty()?null:dockerClient.createContainerCmd(this.dockerImage)
+              .withCmd("bash")
+              .withAttachStdin(true)
+              .withTty(true)
+              .exec();
+        if(forcedContainer!=null) {
+            logger.info("Container '{}' created and starting", forcedContainer.getId());
+            dockerClient.startContainerCmd(forcedContainer.getId()).exec();
+        }
+        
         // list containers
         List<Container> containers = dockerClient.listContainersCmd().withShowSize(true).exec();
         if (containers.isEmpty()) {
@@ -176,6 +204,8 @@ public class DockerAgent extends CommandLineAgent {
         }
 
         for (Container container : containers) {
+            if(!this.dockerImage.isEmpty() && forcedContainer.getId()!=container.getId()) continue;
+            
             String containerId = container.getId().substring(0, SHORT_CONTAINER_ID_LENGTH);
             String containerName = getContainerName(container);
             String image = container.getImage();
@@ -249,6 +279,11 @@ public class DockerAgent extends CommandLineAgent {
                 FileUtils.deleteQuietly(containerTarExtractDir);
                 FileUtils.deleteQuietly(containerTarArchiveExtractDir);
             }
+        }
+        if(forcedContainer!=null) {
+            logger.info("Cleaning created container");
+            dockerClient.stopContainerCmd(forcedContainer.getId()).exec();
+            dockerClient.removeContainerCmd(forcedContainer.getId()).exec();
         }
         return projects;
     }

@@ -60,7 +60,7 @@ public class Main {
         root.setLevel(Level.toLevel(logLevel, Level.INFO));
 
         // run the agent
-        DockerAgent dockerAgent = new DockerAgent(configProps);
+        DockerAgent dockerAgent = new DockerAgent(configProps, commandLineArgs.dockerImage);
         dockerAgent.sendRequest();
     }
 
