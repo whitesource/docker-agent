@@ -68,6 +68,7 @@ public class DockerAgent extends CommandLineAgent {
     public static final int MAX_PER_ROUTE_CONNECTIONS = 10;
 
     // property keys for the configuration file
+    public static final String DOCKER_API_VERSION = "docker.apiVersion";
     public static final String DOCKER_URL = "docker.url";
     public static final String DOCKER_CERT_PATH = "docker.certPath";
     public static final String DOCKER_USERNAME = "docker.username";
@@ -132,6 +133,13 @@ public class DockerAgent extends CommandLineAgent {
      */
     private DockerClient buildDockerClient() {
         DockerClientConfig.DockerClientConfigBuilder configBuilder = DockerClientConfig.createDefaultConfigBuilder();
+
+        final String dockerApiVersion = config.getProperty(DOCKER_API_VERSION);
+        if (StringUtils.isNotBlank(dockerApiVersion)) {
+            logger.info("api version: {}", dockerApiVersion);
+            configBuilder.withVersion(dockerApiVersion);
+
+        }
         String dockerUrl = config.getProperty(DOCKER_URL);
         if (StringUtils.isBlank(dockerUrl)) {
             logger.error("Missing Docker URL");
@@ -203,12 +211,12 @@ public class DockerAgent extends CommandLineAgent {
             return projects;
         }
 
-        for (Container container : containers) {
-            if(!this.dockerImage.isEmpty() && forcedContainer.getId()!=container.getId()) continue;
-            
+        for (Container container : containers) {                   
             String containerId = container.getId().substring(0, SHORT_CONTAINER_ID_LENGTH);
             String containerName = getContainerName(container);
             String image = container.getImage();
+
+            if(!this.dockerImage.isEmpty() && !forcedContainer.getId().equalsIgnoreCase(container.getId())) continue;
             logger.info("Processing Container {} {} ({})", image, containerId, containerName);
 
             // create agent project info
