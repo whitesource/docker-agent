@@ -17,6 +17,8 @@ package org.whitesource.docker;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ExportContainerCmd;
+import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
@@ -66,6 +68,7 @@ public class DockerAgent extends CommandLineAgent {
     public static final int MAX_PER_ROUTE_CONNECTIONS = 10;
 
     // property keys for the configuration file
+    public static final String DOCKER_API_VERSION = "docker.apiVersion";
     public static final String DOCKER_URL = "docker.url";
     public static final String DOCKER_CERT_PATH = "docker.certPath";
     public static final String DOCKER_USERNAME = "docker.username";
@@ -85,10 +88,19 @@ public class DockerAgent extends CommandLineAgent {
     public static final String WINDOWS_PATH_SEPARATOR = "\\";
     public static final String UNIX_PATH_SEPARATOR = "/";
 
+    /* --- Members --- */
+
+    protected final String dockerImage;
+
     /* --- Constructors --- */
 
     public DockerAgent(Properties config) {
+        this(config,"");
+    }
+
+    public DockerAgent(Properties config, String dockerImage) {
         super(config);
+        this.dockerImage=dockerImage;        
     }
 
     /* --- Overridden methods --- */
@@ -121,6 +133,13 @@ public class DockerAgent extends CommandLineAgent {
      */
     private DockerClient buildDockerClient() {
         DockerClientConfig.DockerClientConfigBuilder configBuilder = DockerClientConfig.createDefaultConfigBuilder();
+
+        final String dockerApiVersion = config.getProperty(DOCKER_API_VERSION);
+        if (StringUtils.isNotBlank(dockerApiVersion)) {
+            logger.info("api version: {}", dockerApiVersion);
+            configBuilder.withVersion(dockerApiVersion);
+
+        }
         String dockerUrl = config.getProperty(DOCKER_URL);
         if (StringUtils.isBlank(dockerUrl)) {
             logger.error("Missing Docker URL");
@@ -168,6 +187,23 @@ public class DockerAgent extends CommandLineAgent {
     private Collection<AgentProjectInfo> createProjects(DockerClient dockerClient) {
         Collection<AgentProjectInfo> projects = new ArrayList<>();
 
+        // need to block until image is pulled completely
+        if(!this.dockerImage.isEmpty()) {
+          logger.info("Pulling image '{}'", this.dockerImage);
+          dockerClient.pullImageCmd(this.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
+          logger.info("Creating container");
+        }
+
+        final CreateContainerResponse forcedContainer = this.dockerImage.isEmpty()?null:dockerClient.createContainerCmd(this.dockerImage)
+              .withCmd("bash")
+              .withAttachStdin(true)
+              .withTty(true)
+              .exec();
+        if(forcedContainer!=null) {
+            logger.info("Container '{}' created and starting", forcedContainer.getId());
+            dockerClient.startContainerCmd(forcedContainer.getId()).exec();
+        }
+        
         // list containers
         List<Container> containers = dockerClient.listContainersCmd().withShowSize(true).exec();
         if (containers.isEmpty()) {
@@ -175,10 +211,12 @@ public class DockerAgent extends CommandLineAgent {
             return projects;
         }
 
-        for (Container container : containers) {
+        for (Container container : containers) {                   
             String containerId = container.getId().substring(0, SHORT_CONTAINER_ID_LENGTH);
             String containerName = getContainerName(container);
             String image = container.getImage();
+
+            if(!this.dockerImage.isEmpty() && !forcedContainer.getId().equalsIgnoreCase(container.getId())) continue;
             logger.info("Processing Container {} {} ({})", image, containerId, containerName);
 
             // create agent project info
@@ -249,6 +287,11 @@ public class DockerAgent extends CommandLineAgent {
                 FileUtils.deleteQuietly(containerTarExtractDir);
                 FileUtils.deleteQuietly(containerTarArchiveExtractDir);
             }
+        }
+        if(forcedContainer!=null) {
+            logger.info("Cleaning created container");
+            dockerClient.stopContainerCmd(forcedContainer.getId()).exec();
+            dockerClient.removeContainerCmd(forcedContainer.getId()).exec();
         }
         return projects;
     }

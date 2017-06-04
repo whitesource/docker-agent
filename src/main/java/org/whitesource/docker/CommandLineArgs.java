@@ -33,4 +33,7 @@ public class CommandLineArgs {
     @Parameter(names = "-c", description = "Config file path")
     String configFilePath = CONFIG_FILE_NAME;
 
+    @Parameter(names = "-i", description = "Docker image to be scanned")
+    String dockerImage = "";
+
 }
