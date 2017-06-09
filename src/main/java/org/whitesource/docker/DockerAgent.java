@@ -17,6 +17,7 @@ package org.whitesource.docker;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ExportContainerCmd;
+import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.github.dockerjava.api.model.Container;
@@ -90,17 +91,17 @@ public class DockerAgent extends CommandLineAgent {
 
     /* --- Members --- */
 
-    protected final String dockerImage;
+    private final CommandLineArgs commandLineArgs;
 
     /* --- Constructors --- */
 
     public DockerAgent(Properties config) {
-        this(config,"");
+        this(config, new CommandLineArgs());
     }
 
-    public DockerAgent(Properties config, String dockerImage) {
+    public DockerAgent(Properties config, CommandLineArgs commandLineArgs) {
         super(config);
-        this.dockerImage=dockerImage;        
+        this.commandLineArgs=commandLineArgs;        
     }
 
     /* --- Overridden methods --- */
@@ -188,17 +189,23 @@ public class DockerAgent extends CommandLineAgent {
         Collection<AgentProjectInfo> projects = new ArrayList<>();
 
         // need to block until image is pulled completely
-        if(!this.dockerImage.isEmpty()) {
-          logger.info("Pulling image '{}'", this.dockerImage);
-          dockerClient.pullImageCmd(this.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
+        if(!this.commandLineArgs.dockerImage.isEmpty()) {
+          logger.info("Pulling image '{}'", this.commandLineArgs.dockerImage);
+          dockerClient.pullImageCmd(this.commandLineArgs.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
           logger.info("Creating container");
         }
 
-        final CreateContainerResponse forcedContainer = this.dockerImage.isEmpty()?null:dockerClient.createContainerCmd(this.dockerImage)
-              .withCmd("bash")
-              .withAttachStdin(true)
-              .withTty(true)
-              .exec();
+        final CreateContainerCmd createdContainerCmd=this.commandLineArgs.dockerImage.isEmpty()?null:dockerClient.createContainerCmd(this.commandLineArgs.dockerImage);
+        if(this.commandLineArgs.withCmd.isEmpty()==false && createdContainerCmd!=null) {
+          logger.info("Container will be started with '{}' command", this.commandLineArgs.withCmd);
+          createdContainerCmd.withCmd(this.commandLineArgs.withCmd);
+        }
+        if(this.commandLineArgs.interactive==true && createdContainerCmd!=null) {
+          logger.info("Interactive mode enabled");
+          createdContainerCmd.withAttachStdin(true);
+          createdContainerCmd.withTty(true);
+        }
+        final CreateContainerResponse forcedContainer = this.commandLineArgs.dockerImage.isEmpty()?null:createdContainerCmd.exec();
         if(forcedContainer!=null) {
             logger.info("Container '{}' created and starting", forcedContainer.getId());
             dockerClient.startContainerCmd(forcedContainer.getId()).exec();
@@ -216,7 +223,7 @@ public class DockerAgent extends CommandLineAgent {
             String containerName = getContainerName(container);
             String image = container.getImage();
 
-            if(!this.dockerImage.isEmpty() && !forcedContainer.getId().equalsIgnoreCase(container.getId())) continue;
+            if(!this.commandLineArgs.dockerImage.isEmpty() && !forcedContainer.getId().equalsIgnoreCase(container.getId())) continue;
             logger.info("Processing Container {} {} ({})", image, containerId, containerName);
 
             // create agent project info
