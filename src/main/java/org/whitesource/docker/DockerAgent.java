@@ -100,7 +100,7 @@ public class DockerAgent extends CommandLineAgent {
 
     public DockerAgent(Properties config, String dockerImage) {
         super(config);
-        this.dockerImage=dockerImage;        
+        this.dockerImage = dockerImage;
     }
 
     /* --- Overridden methods --- */
@@ -188,22 +188,21 @@ public class DockerAgent extends CommandLineAgent {
         Collection<AgentProjectInfo> projects = new ArrayList<>();
 
         // need to block until image is pulled completely
-        if(!this.dockerImage.isEmpty()) {
-          logger.info("Pulling image '{}'", this.dockerImage);
-          dockerClient.pullImageCmd(this.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
-          logger.info("Creating container");
-        }
+        CreateContainerResponse forcedContainer = null;
+        if (StringUtils.isNotBlank(dockerImage)) {
+            logger.info("Pulling image '{}'", dockerImage);
+            dockerClient.pullImageCmd(dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
+            logger.info("Successfully pulled container");
 
-        final CreateContainerResponse forcedContainer = this.dockerImage.isEmpty()?null:dockerClient.createContainerCmd(this.dockerImage)
-              .withCmd("bash")
-              .withAttachStdin(true)
-              .withTty(true)
-              .exec();
-        if(forcedContainer!=null) {
+            forcedContainer = dockerClient.createContainerCmd(dockerImage)
+                    .withCmd("bash")
+                    .withAttachStdin(true)
+                    .withTty(true)
+                    .exec();
             logger.info("Container '{}' created and starting", forcedContainer.getId());
             dockerClient.startContainerCmd(forcedContainer.getId()).exec();
         }
-        
+
         // list containers
         List<Container> containers = dockerClient.listContainersCmd().withShowSize(true).exec();
         if (containers.isEmpty()) {
@@ -211,12 +210,14 @@ public class DockerAgent extends CommandLineAgent {
             return projects;
         }
 
-        for (Container container : containers) {                   
+        for (Container container : containers) {
             String containerId = container.getId().substring(0, SHORT_CONTAINER_ID_LENGTH);
             String containerName = getContainerName(container);
             String image = container.getImage();
 
-            if(!this.dockerImage.isEmpty() && !forcedContainer.getId().equalsIgnoreCase(container.getId())) continue;
+            if (forcedContainer != null && !forcedContainer.getId().equalsIgnoreCase(container.getId())) {
+                continue;
+            }
             logger.info("Processing Container {} {} ({})", image, containerId, containerName);
 
             // create agent project info
@@ -261,7 +262,7 @@ public class DockerAgent extends CommandLineAgent {
 
                 // scan files
                 String extractPath = containerTarExtractDir.getPath();
-                List<DependencyInfo> dependencyInfos = new FileSystemScanner().createDependencyInfos(
+                List<DependencyInfo> dependencyInfos = new FileSystemScanner(false).createDependencyInfos(
                         Arrays.asList(extractPath), null, INCLUDES, EXCLUDES, CASE_SENSITIVE_GLOB,
                         ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, FOLLOW_SYMLINKS, new ArrayList<String>(), PARTIAL_SHA1_MATCH);
 
@@ -288,7 +289,8 @@ public class DockerAgent extends CommandLineAgent {
                 FileUtils.deleteQuietly(containerTarArchiveExtractDir);
             }
         }
-        if(forcedContainer!=null) {
+
+        if (forcedContainer != null) {
             logger.info("Cleaning created container");
             dockerClient.stopContainerCmd(forcedContainer.getId()).exec();
             dockerClient.removeContainerCmd(forcedContainer.getId()).exec();
