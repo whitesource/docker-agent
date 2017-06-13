@@ -199,11 +199,11 @@ public class DockerAgent extends CommandLineAgent {
         if(StringUtils.isNotBlank(this.commandLineArgs.withCmd) && createdContainerCmd!=null) {
           logger.info("Container will be started with '{}' command", this.commandLineArgs.withCmd);
           createdContainerCmd.withCmd(this.commandLineArgs.withCmd);
-        }
-        if(this.commandLineArgs.interactive==true && createdContainerCmd!=null) {
-          logger.info("Interactive mode enabled");
-          createdContainerCmd.withAttachStdin(true);
-          createdContainerCmd.withTty(true);
+          if(this.commandLineArgs.interactive==true) {
+            logger.info("Interactive mode enabled");
+            createdContainerCmd.withAttachStdin(true);
+            createdContainerCmd.withTty(true);
+          }
         }
         final CreateContainerResponse forcedContainer = StringUtils.isNotBlank(this.commandLineArgs.dockerImage)?createdContainerCmd.exec():null;
         if(forcedContainer!=null) {
@@ -233,8 +233,7 @@ public class DockerAgent extends CommandLineAgent {
 
             // get debian packages
             Collection<DependencyInfo> debianPackages = ContainerPackageExtractor.extractDebianPackages(dockerClient, containerId);
-            if (!debianPackages.
-                ty()) {
+            if (!debianPackages.isEmpty()) {
                 projectInfo.getDependencies().addAll(debianPackages);
                 logger.info("Found {} Debian Packages", debianPackages.size());
             }
