@@ -189,14 +189,14 @@ public class DockerAgent extends CommandLineAgent {
         Collection<AgentProjectInfo> projects = new ArrayList<>();
 
         // need to block until image is pulled completely
-        if(!this.commandLineArgs.dockerImage.isEmpty()) {
+        if(StringUtils.isNotBlank(this.commandLineArgs.dockerImage)) {
           logger.info("Pulling image '{}'", this.commandLineArgs.dockerImage);
           dockerClient.pullImageCmd(this.commandLineArgs.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
           logger.info("Creating container");
         }
 
-        final CreateContainerCmd createdContainerCmd=this.commandLineArgs.dockerImage.isEmpty()?null:dockerClient.createContainerCmd(this.commandLineArgs.dockerImage);
-        if(this.commandLineArgs.withCmd.isEmpty()==false && createdContainerCmd!=null) {
+        final CreateContainerCmd createdContainerCmd=StringUtils.isNotBlank(this.commandLineArgs.dockerImage)?dockerClient.createContainerCmd(this.commandLineArgs.dockerImage):null;
+        if(StringUtils.isNotBlank(this.commandLineArgs.withCmd) && createdContainerCmd!=null) {
           logger.info("Container will be started with '{}' command", this.commandLineArgs.withCmd);
           createdContainerCmd.withCmd(this.commandLineArgs.withCmd);
         }
@@ -205,12 +205,12 @@ public class DockerAgent extends CommandLineAgent {
           createdContainerCmd.withAttachStdin(true);
           createdContainerCmd.withTty(true);
         }
-        final CreateContainerResponse forcedContainer = this.commandLineArgs.dockerImage.isEmpty()?null:createdContainerCmd.exec();
+        final CreateContainerResponse forcedContainer = StringUtils.isNotBlank(this.commandLineArgs.dockerImage)?createdContainerCmd.exec():null;
         if(forcedContainer!=null) {
             logger.info("Container '{}' created and starting", forcedContainer.getId());
             dockerClient.startContainerCmd(forcedContainer.getId()).exec();
         }
-        
+
         // list containers
         List<Container> containers = dockerClient.listContainersCmd().withShowSize(true).exec();
         if (containers.isEmpty()) {
@@ -218,12 +218,12 @@ public class DockerAgent extends CommandLineAgent {
             return projects;
         }
 
-        for (Container container : containers) {                   
+        for (Container container : containers) {
             String containerId = container.getId().substring(0, SHORT_CONTAINER_ID_LENGTH);
             String containerName = getContainerName(container);
             String image = container.getImage();
 
-            if(!this.commandLineArgs.dockerImage.isEmpty() && !forcedContainer.getId().equalsIgnoreCase(container.getId())) continue;
+            if(StringUtils.isNotBlank(this.commandLineArgs.dockerImage) && !forcedContainer.getId().equalsIgnoreCase(container.getId())) continue;
             logger.info("Processing Container {} {} ({})", image, containerId, containerName);
 
             // create agent project info
@@ -233,7 +233,8 @@ public class DockerAgent extends CommandLineAgent {
 
             // get debian packages
             Collection<DependencyInfo> debianPackages = ContainerPackageExtractor.extractDebianPackages(dockerClient, containerId);
-            if (!debianPackages.isEmpty()) {
+            if (!debianPackages.
+                ty()) {
                 projectInfo.getDependencies().addAll(debianPackages);
                 logger.info("Found {} Debian Packages", debianPackages.size());
             }
@@ -268,7 +269,7 @@ public class DockerAgent extends CommandLineAgent {
 
                 // scan files
                 String extractPath = containerTarExtractDir.getPath();
-                List<DependencyInfo> dependencyInfos = new FileSystemScanner().createDependencyInfos(
+                List<DependencyInfo> dependencyInfos = new FileSystemScanner(false).createDependencyInfos(
                         Arrays.asList(extractPath), null, INCLUDES, EXCLUDES, CASE_SENSITIVE_GLOB,
                         ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, FOLLOW_SYMLINKS, new ArrayList<String>(), PARTIAL_SHA1_MATCH);
 
@@ -295,7 +296,8 @@ public class DockerAgent extends CommandLineAgent {
                 FileUtils.deleteQuietly(containerTarArchiveExtractDir);
             }
         }
-        if(forcedContainer!=null) {
+
+        if (forcedContainer != null) {
             logger.info("Cleaning created container");
             dockerClient.stopContainerCmd(forcedContainer.getId()).exec();
             dockerClient.removeContainerCmd(forcedContainer.getId()).exec();
