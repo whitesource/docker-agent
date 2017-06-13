@@ -194,23 +194,18 @@ public class DockerAgent extends CommandLineAgent {
           dockerClient.pullImageCmd(this.commandLineArgs.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
           logger.info("Creating container");
           final CreateContainerCmd createdContainerCmd=dockerClient.createContainerCmd(this.commandLineArgs.dockerImage);
-          if(createdContainerCmd!=null) {
-            if(StringUtils.isNotBlank(this.commandLineArgs.withCmd)) {
-              logger.info("Container will be started with '{}' command", this.commandLineArgs.withCmd);
-              createdContainerCmd.withCmd(this.commandLineArgs.withCmd);
-            }
-            if(this.commandLineArgs.interactive==true) {
-              logger.info("Interactive mode enabled");
-              createdContainerCmd.withAttachStdin(true);
-              createdContainerCmd.withTty(true);
-            }
-            forcedContainer = createdContainerCmd.exec();
-            if(forcedContainer!=null) {
-                logger.info("Container '{}' created and starting", forcedContainer.getId());
-                dockerClient.startContainerCmd(forcedContainer.getId()).exec();
-            }
+          if(StringUtils.isNotBlank(this.commandLineArgs.withCmd)) {
+            logger.info("Container will be started with '{}' command", this.commandLineArgs.withCmd);
+            createdContainerCmd.withCmd(this.commandLineArgs.withCmd);
           }
-          if(forcedContainer==null) logger.error("Was unable to initialize correctly the specified image '{}'",this.commandLineArgs.dockerImage);
+          if(this.commandLineArgs.interactive==true) {
+            logger.info("Interactive mode enabled");
+            createdContainerCmd.withAttachStdin(true);
+            createdContainerCmd.withTty(true);
+          }
+          forcedContainer = createdContainerCmd.exec();
+          logger.info("Container '{}' created and starting", forcedContainer.getId());
+          dockerClient.startContainerCmd(forcedContainer.getId()).exec();
         }
 
         // list containers
@@ -225,9 +220,7 @@ public class DockerAgent extends CommandLineAgent {
             String containerName = getContainerName(container);
             String image = container.getImage();
 
-            // Scan all containers or only the images specified with -i on the command line  
-            // If dockerImage specified but no container on it, it should crash with null exception not to continue scanning memory images
-            if(StringUtils.isNotBlank(this.commandLineArgs.dockerImage) && !forcedContainer.getId().equalsIgnoreCase(container.getId())) continue; 
+            if(forcedContainer!=null && !forcedContainer.getId().equalsIgnoreCase(container.getId())) continue; 
             logger.info("Processing Container {} {} ({})", image, containerId, containerName);
 
             // create agent project info
