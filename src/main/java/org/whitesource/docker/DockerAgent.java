@@ -16,13 +16,15 @@
 package org.whitesource.docker;
 
 import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.ExportContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.command.SaveImageCmd;
+import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.core.DockerClientBuilder;
 import com.github.dockerjava.core.DockerClientConfig;
 import com.github.dockerjava.jaxrs.DockerCmdExecFactoryImpl;
+import com.github.dockerjava.jaxrs.JerseyDockerCmdExecFactory;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.io.FileUtils;
@@ -71,6 +73,7 @@ public class DockerAgent extends CommandLineAgent {
     public static final String DOCKER_API_VERSION = "docker.apiVersion";
     public static final String DOCKER_URL = "docker.url";
     public static final String DOCKER_CERT_PATH = "docker.certPath";
+    public static final String DOCKER_WITH_TLS_VERIFY = "docker.withDockerTlsVerify";
     public static final String DOCKER_USERNAME = "docker.username";
     public static final String DOCKER_PASSWORD = "docker.password";
     public static final String DOCKER_READ_TIMEOUT = "docker.readTimeOut";
@@ -132,12 +135,12 @@ public class DockerAgent extends CommandLineAgent {
      * Build the docker client with all the provided properties.
      */
     private DockerClient buildDockerClient() {
-        DockerClientConfig.DockerClientConfigBuilder configBuilder = DockerClientConfig.createDefaultConfigBuilder();
+        DefaultDockerClientConfig.Builder configBuilder = DefaultDockerClientConfig.createDefaultConfigBuilder();
 
         final String dockerApiVersion = config.getProperty(DOCKER_API_VERSION);
         if (StringUtils.isNotBlank(dockerApiVersion)) {
             logger.info("api version: {}", dockerApiVersion);
-            configBuilder.withVersion(dockerApiVersion);
+            configBuilder.withApiVersion(dockerApiVersion);
 
         }
         String dockerUrl = config.getProperty(DOCKER_URL);
@@ -146,9 +149,15 @@ public class DockerAgent extends CommandLineAgent {
             return null;
         } else {
             logger.info("Docker URL: {}", dockerUrl);
-            configBuilder.withUri(dockerUrl);
+            configBuilder.withDockerHost(dockerUrl);
         }
-
+        String dockerTlsVerify = config.getProperty(DOCKER_WITH_TLS_VERIFY);
+        if (StringUtils.isBlank(dockerTlsVerify)) {
+            logger.error("Missing Docker TlsVerify");
+        } else {
+            logger.info("Docker TlsVerify: {}", dockerTlsVerify);
+            configBuilder.withDockerTlsVerify(dockerTlsVerify);
+        }
         String dockerCertPath = config.getProperty(DOCKER_CERT_PATH);
         if (StringUtils.isNotBlank(dockerCertPath)) {
             logger.info("Docker certificate path: {}", dockerCertPath);
@@ -157,18 +166,18 @@ public class DockerAgent extends CommandLineAgent {
         String dockerUsername = config.getProperty(DOCKER_USERNAME);
         if (StringUtils.isNotBlank(dockerUsername)) {
             logger.info("Docker username: {}", dockerUrl);
-            configBuilder.withUsername(dockerUsername);
+            configBuilder.withRegistryUsername(dockerUsername);
         }
         String dockerPassword = config.getProperty(DOCKER_PASSWORD);
         if (StringUtils.isNotBlank(dockerPassword)) {
             logger.info("Docker password: {}", dockerPassword);
-            configBuilder.withPassword(dockerPassword);
+            configBuilder.withRegistryPassword(dockerPassword);
         }
         Integer readTimeOut = Integer.parseInt(config.getProperty(DOCKER_READ_TIMEOUT, String.valueOf(TIMEOUT)));
         Integer connectionTimeOut = Integer.parseInt(config.getProperty(DOCKER_CONNECTION_TIMEOUT, String.valueOf(TIMEOUT)));
         logger.info("Read timeout is set to {}", ""+ readTimeOut);
         logger.info("Connection timeout is set to {}", ""+ connectionTimeOut);
-        DockerCmdExecFactoryImpl dockerCmdExecFactory = new DockerCmdExecFactoryImpl()
+        JerseyDockerCmdExecFactory dockerCmdExecFactory = new JerseyDockerCmdExecFactory()
                 .withReadTimeout(readTimeOut)
                 .withConnectTimeout(connectionTimeOut)
                 .withMaxTotalConnections(MAX_TOTAL_CONNECTIONS)
@@ -177,6 +186,9 @@ public class DockerAgent extends CommandLineAgent {
         return DockerClientBuilder.getInstance(configBuilder.build())
                 .withDockerCmdExecFactory(dockerCmdExecFactory)
                 .build();
+
+
+
     }
 
     /**
@@ -247,14 +259,14 @@ public class DockerAgent extends CommandLineAgent {
             containerTarArchiveExtractDir.mkdir();
 
             logger.info("Exporting Container to {} (may take a few minutes)", containerTarFile.getPath());
-            ExportContainerCmd exportContainerCmd = dockerClient.exportContainerCmd(containerId);
+            SaveImageCmd exportContainerCmd = dockerClient.saveImageCmd(container.getImageId());
             InputStream is = exportContainerCmd.exec();
             try {
                 // copy input stream to tar archive
-                ExtractProgressIndicator progressIndicator = new ExtractProgressIndicator(containerTarFile, container.getSize());
-                new Thread(progressIndicator).start();
+                //ExtractProgressIndicator progressIndicator = new ExtractProgressIndicator(containerTarFile, container.getSizeRw());
+                //new Thread(progressIndicator).start();
                 FileUtils.copyInputStreamToFile(is, containerTarFile);
-                progressIndicator.finished();
+                //progressIndicator.finished();
                 logger.info("Successfully Exported Container to {}", containerTarFile.getPath());
 
                 // extract tar archive
