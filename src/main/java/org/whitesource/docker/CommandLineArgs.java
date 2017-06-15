@@ -33,7 +33,12 @@ public class CommandLineArgs {
     @Parameter(names = "-c", description = "Config file path")
     String configFilePath = CONFIG_FILE_NAME;
 
-    @Parameter(names = "-i", description = "Docker image to be scanned")
+    @Parameter(names = {"-i", "--image"}, description = "Docker image (-i <image>) to be scanned")
     String dockerImage = "";
 
+    @Parameter(names = { "-w", "--withCmd"}, description = "Starts the container with a specific command (-w <command>) (only works with -i)")
+    String withCmd = "";
+
+    @Parameter(names = { "-I", "--interactive"}, description = "Starts the container in interactive mode catching tty & attaching stdin (only works with -i)")
+    Boolean interactive = false;
 }
