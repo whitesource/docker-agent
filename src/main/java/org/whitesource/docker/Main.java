@@ -48,25 +48,24 @@ public class Main {
 
     public static void main(String[] args) {
         try {
-          jCommander = new JCommander(commandLineArgs, args);
-          // validate args // TODO use jCommander validators
-          // TODO add usage command
-  
-          // read configuration properties
-          Properties configProps = readAndValidateConfigFile(commandLineArgs.configFilePath);
-  
-          // read log level from configuration file
-          ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
-          String logLevel = configProps.getProperty(LOG_LEVEL_KEY, INFO);
-          root.setLevel(Level.toLevel(logLevel, Level.INFO));
-  
-          // run the agent
-          DockerAgent dockerAgent = new DockerAgent(configProps, commandLineArgs);
-          dockerAgent.sendRequest();
-        }
-        catch(Exception e) {
-          e.printStackTrace(System.out);
-          System.exit(-1);          
+            jCommander = new JCommander(commandLineArgs, args);
+            // validate args // TODO use jCommander validators
+            // TODO add usage command
+
+            // read configuration properties
+            Properties configProps = readAndValidateConfigFile(commandLineArgs.configFilePath);
+
+            // read log level from configuration file
+            ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
+            String logLevel = configProps.getProperty(LOG_LEVEL_KEY, INFO);
+            root.setLevel(Level.toLevel(logLevel, Level.INFO));
+
+            // run the agent
+            DockerAgent dockerAgent = new DockerAgent(configProps, commandLineArgs);
+            dockerAgent.sendRequest();
+        } catch (Exception e) {
+            e.printStackTrace(System.out);
+            System.exit(-1);
         }
     }
 

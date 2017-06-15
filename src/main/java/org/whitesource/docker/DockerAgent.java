@@ -19,12 +19,10 @@ import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
 import com.github.dockerjava.api.command.SaveImageCmd;
-import com.github.dockerjava.core.DefaultDockerClientConfig;
-import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.github.dockerjava.api.model.Container;
+import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
-import com.github.dockerjava.core.DockerClientConfig;
-import com.github.dockerjava.jaxrs.DockerCmdExecFactoryImpl;
+import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.github.dockerjava.jaxrs.JerseyDockerCmdExecFactory;
 import org.apache.commons.compress.archivers.ArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
@@ -104,7 +102,7 @@ public class DockerAgent extends CommandLineAgent {
 
     public DockerAgent(Properties config, CommandLineArgs commandLineArgs) {
         super(config);
-        this.commandLineArgs=commandLineArgs;
+        this.commandLineArgs = commandLineArgs;
     }
 
     /* --- Overridden methods --- */
@@ -144,6 +142,7 @@ public class DockerAgent extends CommandLineAgent {
             configBuilder.withApiVersion(dockerApiVersion);
 
         }
+
         String dockerUrl = config.getProperty(DOCKER_URL);
         if (StringUtils.isBlank(dockerUrl)) {
             logger.error("Missing Docker URL");
@@ -152,6 +151,7 @@ public class DockerAgent extends CommandLineAgent {
             logger.info("Docker URL: {}", dockerUrl);
             configBuilder.withDockerHost(dockerUrl);
         }
+
         String dockerTlsVerify = config.getProperty(DOCKER_WITH_TLS_VERIFY);
         if (StringUtils.isBlank(dockerTlsVerify)) {
             logger.error("Missing Docker TlsVerify");
@@ -187,9 +187,6 @@ public class DockerAgent extends CommandLineAgent {
         return DockerClientBuilder.getInstance(configBuilder.build())
                 .withDockerCmdExecFactory(dockerCmdExecFactory)
                 .build();
-
-
-
     }
 
     /**
@@ -201,23 +198,26 @@ public class DockerAgent extends CommandLineAgent {
         Collection<AgentProjectInfo> projects = new ArrayList<>();
 
         CreateContainerResponse forcedContainer = null;
-        if(StringUtils.isNotBlank(this.commandLineArgs.dockerImage)) {
-          logger.info("Pulling image '{}'", this.commandLineArgs.dockerImage);
-          dockerClient.pullImageCmd(this.commandLineArgs.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
-          logger.info("Creating container");
-          final CreateContainerCmd createdContainerCmd=dockerClient.createContainerCmd(this.commandLineArgs.dockerImage);
-          if(StringUtils.isNotBlank(this.commandLineArgs.withCmd)) {
-            logger.info("Container will be started with '{}' command", this.commandLineArgs.withCmd);
-            createdContainerCmd.withCmd(this.commandLineArgs.withCmd);
-          }
-          if(this.commandLineArgs.interactive==true) {
-            logger.info("Interactive mode enabled");
-            createdContainerCmd.withAttachStdin(true);
-            createdContainerCmd.withTty(true);
-          }
-          forcedContainer = createdContainerCmd.exec();
-          logger.info("Container '{}' created and starting", forcedContainer.getId());
-          dockerClient.startContainerCmd(forcedContainer.getId()).exec();
+        if (StringUtils.isNotBlank(this.commandLineArgs.dockerImage)) {
+            logger.info("Pulling image '{}'", this.commandLineArgs.dockerImage);
+            dockerClient.pullImageCmd(this.commandLineArgs.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
+
+            logger.info("Creating container");
+            final CreateContainerCmd createdContainerCmd = dockerClient.createContainerCmd(this.commandLineArgs.dockerImage);
+            if (StringUtils.isNotBlank(this.commandLineArgs.withCmd)) {
+                logger.info("Container will be started with '{}' command", this.commandLineArgs.withCmd);
+                createdContainerCmd.withCmd(this.commandLineArgs.withCmd);
+            }
+
+            if (this.commandLineArgs.interactive == true) {
+                logger.info("Interactive mode enabled");
+                createdContainerCmd.withAttachStdin(true);
+                createdContainerCmd.withTty(true);
+            }
+
+            forcedContainer = createdContainerCmd.exec();
+            logger.info("Container '{}' created and starting", forcedContainer.getId());
+            dockerClient.startContainerCmd(forcedContainer.getId()).exec();
         }
 
         // list containers
@@ -232,7 +232,9 @@ public class DockerAgent extends CommandLineAgent {
             String containerName = getContainerName(container);
             String image = container.getImage();
 
-            if(forcedContainer!=null && !forcedContainer.getId().equalsIgnoreCase(container.getId())) continue;
+            if (forcedContainer != null && !forcedContainer.getId().equalsIgnoreCase(container.getId())) {
+                continue;
+            }
             logger.info("Processing Container {} {} ({})", image, containerId, containerName);
 
             // create agent project info
