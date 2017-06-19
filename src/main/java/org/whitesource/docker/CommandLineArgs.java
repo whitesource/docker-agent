@@ -16,6 +16,11 @@
 package org.whitesource.docker;
 
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.converters.IParameterSplitter;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * Command line arguments.
@@ -24,11 +29,20 @@ import com.beust.jcommander.Parameter;
  */
 public class CommandLineArgs {
 
+    public static class SemiColonSplitter implements IParameterSplitter {
+        public List<String> split(String value) {
+            return Arrays.asList(value.split(";"));
+        }
+    }
+
     /* --- Static members --- */
 
     private static final String CONFIG_FILE_NAME = "whitesource-docker-agent.config";
 
     /* --- Parameters --- */
+
+    @Parameter(names = "--help", help = true)
+    public boolean help = false;
 
     @Parameter(names = "-c", description = "Config file path")
     String configFilePath = CONFIG_FILE_NAME;
@@ -36,8 +50,8 @@ public class CommandLineArgs {
     @Parameter(names = {"-i", "--image"}, description = "Docker image (-i <image>) to be scanned")
     String dockerImage = "";
 
-    @Parameter(names = { "-w", "--withCmd"}, description = "Starts the container with a specific command (-w <command>) (only works with -i)")
-    String withCmd = "";
+    @Parameter(names = { "-w", "--withCmd"},splitter = SemiColonSplitter.class, description = "Starts the container with specific commands semicolon delimited (-w <command>) (only works with -i)")
+    List<String> withCmd = new ArrayList<>();
 
     @Parameter(names = { "-I", "--interactive"}, description = "Starts the container in interactive mode catching tty & attaching stdin (only works with -i)")
     Boolean interactive = false;

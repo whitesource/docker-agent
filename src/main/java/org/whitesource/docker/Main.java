@@ -50,7 +50,10 @@ public class Main {
         try {
             jCommander = new JCommander(commandLineArgs, args);
             // validate args // TODO use jCommander validators
-            // TODO add usage command
+            if (commandLineArgs.help) {
+                jCommander.usage();
+                return;
+            }
 
             // read configuration properties
             Properties configProps = readAndValidateConfigFile(commandLineArgs.configFilePath);

@@ -18,10 +18,13 @@ package org.whitesource.docker;
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.CreateContainerCmd;
 import com.github.dockerjava.api.command.CreateContainerResponse;
+import com.github.dockerjava.api.command.ExecCreateCmdResponse;
 import com.github.dockerjava.api.command.SaveImageCmd;
 import com.github.dockerjava.api.model.Container;
+import com.github.dockerjava.api.model.Image;
 import com.github.dockerjava.core.DefaultDockerClientConfig;
 import com.github.dockerjava.core.DockerClientBuilder;
+import com.github.dockerjava.core.command.ExecStartResultCallback;
 import com.github.dockerjava.core.command.PullImageResultCallback;
 import com.github.dockerjava.jaxrs.JerseyDockerCmdExecFactory;
 import org.apache.commons.compress.archivers.ArchiveEntry;
@@ -199,16 +202,24 @@ public class DockerAgent extends CommandLineAgent {
 
         CreateContainerResponse forcedContainer = null;
         if (StringUtils.isNotBlank(this.commandLineArgs.dockerImage)) {
-            logger.info("Pulling image '{}'", this.commandLineArgs.dockerImage);
-            dockerClient.pullImageCmd(this.commandLineArgs.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
+            logger.info("Check if image exists '{}'", this.commandLineArgs.dockerImage);
+
+            if(false == imageExists(dockerClient , this.commandLineArgs.dockerImage)) {
+                logger.info("Pulling image '{}'", this.commandLineArgs.dockerImage);
+                dockerClient.pullImageCmd(this.commandLineArgs.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
+            }
+            else{
+                logger.info("Image found '{}',skip pulling", this.commandLineArgs.dockerImage);
+            }
 
             logger.info("Creating container");
             final CreateContainerCmd createdContainerCmd = dockerClient.createContainerCmd(this.commandLineArgs.dockerImage);
-            if (StringUtils.isNotBlank(this.commandLineArgs.withCmd)) {
+            if (this.commandLineArgs.withCmd.size() != 0) {
                 logger.info("Container will be started with '{}' command", this.commandLineArgs.withCmd);
                 createdContainerCmd.withCmd(this.commandLineArgs.withCmd);
             }
 
+            // TODO get rid of interactive parameter?
             if (this.commandLineArgs.interactive == true) {
                 logger.info("Interactive mode enabled");
                 createdContainerCmd.withAttachStdin(true);
@@ -218,6 +229,20 @@ public class DockerAgent extends CommandLineAgent {
             forcedContainer = createdContainerCmd.exec();
             logger.info("Container '{}' created and starting", forcedContainer.getId());
             dockerClient.startContainerCmd(forcedContainer.getId()).exec();
+
+            ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(forcedContainer.getId())
+                    .withCmd("touch", "/execStartText.log")
+                    .exec();
+
+            try {
+                dockerClient.execStartCmd(execCreateCmdResponse.getId())
+                        // docker -d parameter
+                        .withDetach(true)
+                        .exec(new ExecStartResultCallback(System.out, System.err))
+                        .awaitCompletion();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
 
         // list containers
@@ -227,6 +252,7 @@ public class DockerAgent extends CommandLineAgent {
             return projects;
         }
 
+        boolean containerFoundAfterStart = false;
         for (Container container : containers) {
             String containerId = container.getId().substring(0, SHORT_CONTAINER_ID_LENGTH);
             String containerName = getContainerName(container);
@@ -235,6 +261,7 @@ public class DockerAgent extends CommandLineAgent {
             if (forcedContainer != null && !forcedContainer.getId().equalsIgnoreCase(container.getId())) {
                 continue;
             }
+            containerFoundAfterStart = true;
             logger.info("Processing Container {} {} ({})", image, containerId, containerName);
 
             // create agent project info
@@ -268,10 +295,10 @@ public class DockerAgent extends CommandLineAgent {
             InputStream is = exportContainerCmd.exec();
             try {
                 // copy input stream to tar archive
-                //ExtractProgressIndicator progressIndicator = new ExtractProgressIndicator(containerTarFile, container.getSizeRw());
-                //new Thread(progressIndicator).start();
+                ExtractProgressIndicator progressIndicator = new ExtractProgressIndicator(containerTarFile, container.getSizeRootFs());
+                new Thread(progressIndicator).start();
                 FileUtils.copyInputStreamToFile(is, containerTarFile);
-                //progressIndicator.finished();
+                progressIndicator.finished();
                 logger.info("Successfully Exported Container to {}", containerTarFile.getPath());
 
                 // extract tar archive
@@ -307,12 +334,21 @@ public class DockerAgent extends CommandLineAgent {
             }
         }
 
-        if (forcedContainer != null) {
+        if (forcedContainer != null && containerFoundAfterStart) {
             logger.info("Cleaning created container");
             dockerClient.stopContainerCmd(forcedContainer.getId()).exec();
             dockerClient.removeContainerCmd(forcedContainer.getId()).exec();
         }
         return projects;
+    }
+
+    private boolean imageExists(DockerClient dockerClient, String dockerImage) {
+        List<Image> images = dockerClient.listImagesCmd().exec();
+        for (Image image : images) {
+            if (image.getRepoTags().length > 0 && image.getRepoTags()[0].contains(dockerImage))
+                return true;
+        }
+        return  false;
     }
 
     /**
