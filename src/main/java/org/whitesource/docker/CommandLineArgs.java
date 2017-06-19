@@ -50,9 +50,7 @@ public class CommandLineArgs {
     @Parameter(names = {"-i", "--image"}, description = "Docker image (-i <image>) to be scanned")
     String dockerImage = "";
 
-    @Parameter(names = { "-w", "--withCmd"},splitter = SemiColonSplitter.class, description = "Starts the container with specific commands semicolon delimited (-w <command>) (only works with -i)")
+    @Parameter(names = {"-w", "--withCmd"}, splitter = SemiColonSplitter.class, description = "Starts the container with specific commands semicolon delimited (-w <command>) (only works with -i)")
     List<String> withCmd = new ArrayList<>();
 
-    @Parameter(names = { "-I", "--interactive"}, description = "Starts the container in interactive mode catching tty & attaching stdin (only works with -i)")
-    Boolean interactive = false;
 }

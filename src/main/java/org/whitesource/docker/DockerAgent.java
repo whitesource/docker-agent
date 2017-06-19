@@ -179,8 +179,8 @@ public class DockerAgent extends CommandLineAgent {
         }
         Integer readTimeOut = Integer.parseInt(config.getProperty(DOCKER_READ_TIMEOUT, String.valueOf(TIMEOUT)));
         Integer connectionTimeOut = Integer.parseInt(config.getProperty(DOCKER_CONNECTION_TIMEOUT, String.valueOf(TIMEOUT)));
-        logger.info("Read timeout is set to {}", ""+ readTimeOut);
-        logger.info("Connection timeout is set to {}", ""+ connectionTimeOut);
+        logger.info("Read timeout is set to {}", readTimeOut);
+        logger.info("Connection timeout is set to {}", connectionTimeOut);
         JerseyDockerCmdExecFactory dockerCmdExecFactory = new JerseyDockerCmdExecFactory()
                 .withReadTimeout(readTimeOut)
                 .withConnectTimeout(connectionTimeOut)
@@ -201,35 +201,32 @@ public class DockerAgent extends CommandLineAgent {
         Collection<AgentProjectInfo> projects = new ArrayList<>();
 
         CreateContainerResponse forcedContainer = null;
-        if (StringUtils.isNotBlank(this.commandLineArgs.dockerImage)) {
-            logger.info("Check if image exists '{}'", this.commandLineArgs.dockerImage);
+        if (StringUtils.isNotBlank(commandLineArgs.dockerImage)) {
+            logger.info("Check if image exists '{}'", commandLineArgs.dockerImage);
 
-            if(false == imageExists(dockerClient , this.commandLineArgs.dockerImage)) {
-                logger.info("Pulling image '{}'", this.commandLineArgs.dockerImage);
-                dockerClient.pullImageCmd(this.commandLineArgs.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
-            }
-            else{
-                logger.info("Image found '{}',skip pulling", this.commandLineArgs.dockerImage);
+            if (!imageExists(dockerClient, commandLineArgs.dockerImage)) {
+                logger.info("Pulling image '{}'", commandLineArgs.dockerImage);
+                dockerClient.pullImageCmd(commandLineArgs.dockerImage).exec(new PullImageResultCallback()).awaitSuccess();
+            } else {
+                logger.info("Image found '{}',skip pulling", commandLineArgs.dockerImage);
             }
 
             logger.info("Creating container");
-            final CreateContainerCmd createdContainerCmd = dockerClient.createContainerCmd(this.commandLineArgs.dockerImage);
-            if (this.commandLineArgs.withCmd.size() != 0) {
-                logger.info("Container will be started with '{}' command", this.commandLineArgs.withCmd);
-                createdContainerCmd.withCmd(this.commandLineArgs.withCmd);
+            final CreateContainerCmd createdContainerCmd = dockerClient.createContainerCmd(commandLineArgs.dockerImage);
+            if (commandLineArgs.withCmd.size() != 0) {
+                logger.info("Container will be started with '{}' command", commandLineArgs.withCmd);
+                createdContainerCmd.withCmd(commandLineArgs.withCmd);
             }
 
-            // TODO get rid of interactive parameter?
-            if (this.commandLineArgs.interactive == true) {
-                logger.info("Interactive mode enabled");
-                createdContainerCmd.withAttachStdin(true);
-                createdContainerCmd.withTty(true);
-            }
+            // enable attach stdin and tty so container won't stop after execution
+            createdContainerCmd.withAttachStdin(true);
+            createdContainerCmd.withTty(true);
 
             forcedContainer = createdContainerCmd.exec();
             logger.info("Container '{}' created and starting", forcedContainer.getId());
             dockerClient.startContainerCmd(forcedContainer.getId()).exec();
 
+            // must execute at least one command (touch is the most minimalistic)
             ExecCreateCmdResponse execCreateCmdResponse = dockerClient.execCreateCmd(forcedContainer.getId())
                     .withCmd("touch", "/execStartText.log")
                     .exec();
@@ -345,10 +342,10 @@ public class DockerAgent extends CommandLineAgent {
     private boolean imageExists(DockerClient dockerClient, String dockerImage) {
         List<Image> images = dockerClient.listImagesCmd().exec();
         for (Image image : images) {
-            if (image.getRepoTags().length > 0 && image.getRepoTags()[0].contains(dockerImage))
+            if (image.getRepoTags().length > 0 && image.getRepoTags()[0].startsWith(dockerImage))
                 return true;
         }
-        return  false;
+        return false;
     }
 
     /**
