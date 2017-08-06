@@ -88,7 +88,8 @@ public class DockerAgent extends CommandLineAgent {
     public static final boolean PARTIAL_SHA1_MATCH = false;
 
     public static final String AGENT_TYPE = "docker-agent";
-    public static final String AGENT_VERSION = "2.2.6";
+    public static final String AGENT_VERSION = "2.3.7";
+    private static final String PLUGIN_VERSION = "1.0.5";
 
     public static final String WINDOWS_PATH_SEPARATOR = "\\";
     public static final String UNIX_PATH_SEPARATOR = "/";
@@ -129,6 +130,11 @@ public class DockerAgent extends CommandLineAgent {
     @Override
     protected String getAgentVersion() {
         return AGENT_VERSION;
+    }
+
+    @Override
+    protected String getPluginVersion() {
+        return PLUGIN_VERSION;
     }
 
     /* --- Private methods --- */
@@ -303,7 +309,7 @@ public class DockerAgent extends CommandLineAgent {
 
                 // scan files
                 String extractPath = containerTarExtractDir.getPath();
-                List<DependencyInfo> dependencyInfos = new FileSystemScanner(false).createDependencyInfos(
+                List<DependencyInfo> dependencyInfos = new FileSystemScanner(false, null).createDependencies(
                         Arrays.asList(extractPath), null, INCLUDES, EXCLUDES, CASE_SENSITIVE_GLOB,
                         ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, FOLLOW_SYMLINKS, new ArrayList<String>(), PARTIAL_SHA1_MATCH);
 

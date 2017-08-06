@@ -15,19 +15,7 @@
  */
 package org.whitesource.docker;
 
-import ch.qos.logback.classic.Level;
-import com.beust.jcommander.JCommander;
-import org.apache.commons.lang.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.Properties;
-
-import static org.whitesource.agent.ConfigPropertyKeys.*;
+import org.whitesource.fs.StatusCode;
 
 /**
  * Entry point for the docker agent.
@@ -35,80 +23,26 @@ import static org.whitesource.agent.ConfigPropertyKeys.*;
  * @author tom.shapira
  */
 public class Main {
-
     /* --- Static members --- */
 
-    private static final Logger logger = LoggerFactory.getLogger(Main.class);
     private static final CommandLineArgs commandLineArgs = new CommandLineArgs();
-    private static final String INFO = "info";
-
-    private static JCommander jCommander;
 
     /* --- Main --- */
 
     public static void main(String[] args) {
-        try {
-            jCommander = new JCommander(commandLineArgs, args);
-            // validate args // TODO use jCommander validators
-            if (commandLineArgs.help) {
-                jCommander.usage();
-                return;
-            }
+        ConfigManager configManager = new ConfigManager();
+        PropertiesResult propsResult = configManager.getProperties(args, commandLineArgs);
 
-            // read configuration properties
-            Properties configProps = readAndValidateConfigFile(commandLineArgs.configFilePath);
+        if(isValidResult(propsResult))
+            System.exit(propsResult.getStatus().getValue());
 
-            // read log level from configuration file
-            ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
-            String logLevel = configProps.getProperty(LOG_LEVEL_KEY, INFO);
-            root.setLevel(Level.toLevel(logLevel, Level.INFO));
-
-            // run the agent
-            DockerAgent dockerAgent = new DockerAgent(configProps, commandLineArgs);
-            dockerAgent.sendRequest();
-        } catch (Exception e) {
-            e.printStackTrace(System.out);
-            System.exit(-1);
-        }
+        Connector dockerConnector = new Connector();
+        StatusCode statusCode = dockerConnector.getStatusCode(propsResult.getConfigProps(), commandLineArgs);
+        System.exit(statusCode.getValue());
     }
 
-    /* --- Private methods --- */
-
-    private static Properties readAndValidateConfigFile(String configFilePath) {
-        Properties configProps = new Properties();
-        InputStream inputStream = null;
-        boolean foundError = false;
-        try {
-            inputStream = new FileInputStream(configFilePath);
-            configProps.load(inputStream);
-            foundError = validateConfigProps(configProps, configFilePath);
-        } catch (FileNotFoundException e) {
-            logger.error("Failed to open " + configFilePath + " for reading", e);
-            foundError = true;
-        } catch (IOException e) {
-            logger.error("Error occurred when reading from " + configFilePath , e);
-            foundError = true;
-        } finally {
-            if (inputStream != null) {
-                try {
-                    inputStream.close();
-                } catch (IOException e) {
-                    logger.warn("Failed to close " + configFilePath + "InputStream", e);
-                }
-            }
-            if (foundError) {
-                System.exit(-1); // TODO this may throw SecurityException. Return null instead
-            }
-        }
-        return configProps;
-    }
-
-    private static boolean validateConfigProps(Properties configProps, String configFilePath) {
-        boolean foundError = false;
-        if (StringUtils.isBlank(configProps.getProperty(ORG_TOKEN_PROPERTY_KEY))) {
-            foundError = true;
-            logger.error("Could not retrieve {} property from {}", ORG_TOKEN_PROPERTY_KEY, configFilePath);
-        }
-        return foundError;
+    private static boolean isValidResult(PropertiesResult propsResult) {
+        return (propsResult.getStatus() == StatusCode.SUCCESS && propsResult == null)
+                || propsResult.getStatus() != StatusCode.SUCCESS;
     }
 }
