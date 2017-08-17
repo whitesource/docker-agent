@@ -11,7 +11,7 @@ import java.util.Properties;
 import static org.whitesource.agent.ConfigPropertyKeys.*;
 
 /**
- * Created by eugen.horovitz on 7/5/2017.
+ * @author eugen.horovitz
  */
 public class ConnectorTest {
 
