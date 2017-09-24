@@ -31,7 +31,7 @@ public class ExtensionUtils {
 
     public static final String REGEX_PATTERN_PREFIX = ".*\\.";
     public static final String REGEX_OR = "|";
-    public static final String GLOB_PATTERN_PREFIX = "**/*";
+    public static final String GLOB_PATTERN_PREFIX = "**/*.";
 
     public static final List<String> SOURCE_EXTENSIONS = Arrays.asList("js", "php");
     public static final List<String> BINARY_EXTENSIONS = Arrays.asList("jar", "egg", "tar.gz", "tgz", "zip", "whl", "gem",
