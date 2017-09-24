@@ -15,6 +15,7 @@
  */
 package org.whitesource.docker;
 
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -33,7 +34,8 @@ public class ExtensionUtils {
     public static final String GLOB_PATTERN_PREFIX = "**/*";
 
     public static final List<String> SOURCE_EXTENSIONS = Arrays.asList("js", "php");
-    public static final List<String> BINARY_EXTENSIONS = Arrays.asList("jar", "egg", "tar.gz", "tgz", "zip", "whl", "gem", "(u)?deb", "(a)?rpm");
+    public static final List<String> BINARY_EXTENSIONS = Arrays.asList("jar", "egg", "tar.gz", "tgz", "zip", "whl", "gem",
+            "apk", "air", "dmg", "exe", "gem", "gzip", "msi", "nupkg", "swc", "swf", "tar.bz2", "pkg.tar.xz", "(u)?deb", "(a)?rpm");
     public static final List<String> ARCHIVE_EXTENSIONS = Arrays.asList("war", "ear", "zip", "whl", "tar.gz", "tgz", "tar");
 
     public static final String SOURCE_FILE_PATTERN;
@@ -63,6 +65,7 @@ public class ExtensionUtils {
             sb.append(extension);
             sb.append(REGEX_OR);
         }
+
         return sb.toString().substring(0, sb.toString().lastIndexOf(REGEX_OR));
     }
 
