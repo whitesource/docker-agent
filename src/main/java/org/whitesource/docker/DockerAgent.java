@@ -89,7 +89,7 @@ public class DockerAgent extends CommandLineAgent {
 
     public static final String AGENT_TYPE = "docker-agent";
     public static final String AGENT_VERSION = "2.3.7";
-    private static final String PLUGIN_VERSION = "1.0.5";
+    private static final String PLUGIN_VERSION = "1.0.6";
 
     public static final String WINDOWS_PATH_SEPARATOR = "\\";
     public static final String UNIX_PATH_SEPARATOR = "/";
