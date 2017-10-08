@@ -43,6 +43,7 @@ public class ContainerPackageExtractor {
 
     private static final String[] DEBIAN_PACKAGES_LIST_COMMAND = new String[] { "dpkg", "-l" };
     private static final String[] RPM_PACKAGES_LIST_COMMAND = new String[] { "rpm", "-qa" };
+    private static final String[] ALPINE_PACKAGES_LIST_COMMAND = new String[] { "apk", "-vv", "info" };
 
     // reference: http://askubuntu.com/questions/18804/what-do-the-various-dpkg-flags-like-ii-rc-mean/18807#18807
     private static final String DEBIAN_INSTALLED_PACKAGE_PREFIX = "ii";
@@ -52,6 +53,8 @@ public class ContainerPackageExtractor {
     private static final int DEBIAN_PACKAGE_ARCH_INDEX = 2;
     private static final String DEBIAN_PACKAGE_PATTERN = "{0}_{1}_{2}.deb";
     private static final String RPM_PACKAGE_PATTERN = "{0}.rpm";
+    private static final String ALPINE_PACKAGE_PATTERN = "{0}.apk";
+    private static final String ALPINE_PACKAGE_SPLIT_PATTERN = " - ";
     private static final String WHITE_SPACE = " ";
 
     private static final String COLON = ":";
@@ -160,4 +163,45 @@ public class ContainerPackageExtractor {
         return rpmPackages;
     }
 
+    /**
+     * Get all Alpine packages by executing "apk info -vv" in a container and parsing the output.
+     */
+    public static Collection<DependencyInfo> extractAlpinePackages(DockerClient dockerClient, String containerId) {
+        Collection<DependencyInfo> alpinePackages = new ArrayList<>();
+
+        // create execute command
+        ExecCreateCmdResponse execResponse = dockerClient.execCreateCmd(String.valueOf(containerId))
+                .withAttachStdout(true)
+                .withCmd(ALPINE_PACKAGES_LIST_COMMAND).exec();
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try {
+            dockerClient.execStartCmd(execResponse.getId())
+                    .withDetach(false).withTty(false)
+                    .withExecId(execResponse.getId())
+                    .exec(new ExecStartResultCallback(outputStream, System.err)).awaitCompletion();
+        } catch (InterruptedException e) {
+            logger.warn("Error writing output: {}", e.getMessage());
+        }
+
+        // parse rpm packages
+        String linesStr = new String(outputStream.toByteArray());
+        String[] lines = linesStr.split("\\r?\\n");
+        for (String line : lines) {
+            line = line.replaceAll(NON_ASCII_CHARS, EMPTY_STRING);
+            if (line.contains(ALPINE_PACKAGE_SPLIT_PATTERN)) {
+                String[] split = line.split(ALPINE_PACKAGE_SPLIT_PATTERN);
+                if (split.length > 0) {
+                    alpinePackages.add(new DependencyInfo(null, MessageFormat.format(ALPINE_PACKAGE_PATTERN, split[0]), null));
+                }
+            }
+        }
+
+        try{
+            outputStream.close();
+        } catch (IOException e) {
+            logger.warn("Error reading output: {}", e.getMessage());
+        }
+        return alpinePackages;
+    }
 }

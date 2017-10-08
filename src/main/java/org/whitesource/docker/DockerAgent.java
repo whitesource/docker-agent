@@ -286,6 +286,13 @@ public class DockerAgent extends CommandLineAgent {
                 logger.info("Found {} RPM Packages", rpmPackages.size());
             }
 
+            // get Alpine packages
+            Collection<DependencyInfo> alpinePackages = ContainerPackageExtractor.extractAlpinePackages(dockerClient, containerId);
+            if (!alpinePackages.isEmpty()) {
+                projectInfo.getDependencies().addAll(alpinePackages);
+                logger.info("Found {} Alpine Packages", alpinePackages.size());
+            }
+
             // export container tar file
             File containerTarFile = new File(TEMP_FOLDER, containerName + TAR_SUFFIX);
             File containerTarExtractDir = new File(TEMP_FOLDER, containerName);
@@ -311,7 +318,7 @@ public class DockerAgent extends CommandLineAgent {
                 String extractPath = containerTarExtractDir.getPath();
                 List<DependencyInfo> dependencyInfos = new FileSystemScanner(false, null).createDependencies(
                         Arrays.asList(extractPath), null, INCLUDES, EXCLUDES, CASE_SENSITIVE_GLOB,
-                        ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, FOLLOW_SYMLINKS, new ArrayList<String>(), PARTIAL_SHA1_MATCH);
+                        ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, false, FOLLOW_SYMLINKS, new ArrayList<String>(), PARTIAL_SHA1_MATCH);
 
                 // modify file paths relative to the container
                 for (DependencyInfo dependencyInfo : dependencyInfos) {
