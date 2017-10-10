@@ -25,9 +25,7 @@ import org.whitesource.agent.api.model.DependencyInfo;
 
 import java.io.*;
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
+import java.util.*;
 
 
 /**
@@ -44,6 +42,8 @@ public class ContainerPackageExtractor {
     private static final String[] DEBIAN_PACKAGES_LIST_COMMAND = new String[] { "dpkg", "-l" };
     private static final String[] RPM_PACKAGES_LIST_COMMAND = new String[] { "rpm", "-qa" };
     private static final String[] ALPINE_PACKAGES_LIST_COMMAND = new String[] { "apk", "-vv", "info" };
+    private static final String[] ARCH_LINUX_PACKAGES_LIST_COMMAND = new String[] { "pacman", "-Q" };
+    private static final String[] ARCH_LINUX_ARCHITECTURE_COMMAND = new String[] { "uname", "-m" };
 
     // reference: http://askubuntu.com/questions/18804/what-do-the-various-dpkg-flags-like-ii-rc-mean/18807#18807
     private static final String DEBIAN_INSTALLED_PACKAGE_PREFIX = "ii";
@@ -55,11 +55,15 @@ public class ContainerPackageExtractor {
     private static final String RPM_PACKAGE_PATTERN = "{0}.rpm";
     private static final String ALPINE_PACKAGE_PATTERN = "{0}.apk";
     private static final String ALPINE_PACKAGE_SPLIT_PATTERN = " - ";
+    private static final String ARCH_LINUX_PACKAGE_PATTERN = "{0}-{1}-{2}.pkg.tar.xz";
+    private static final String ARCH_LINUX_PACKAGE_SPLIT_PATTERN = " ";
     private static final String WHITE_SPACE = " ";
 
     private static final String COLON = ":";
     private static final String NON_ASCII_CHARS = "[^\\x20-\\x7e]";
     private static final String EMPTY_STRING = "";
+
+    private static final List<String> SYSTEM_ARCHITECTURES = Arrays.asList("x86_64", "i686", "any");
 
     /* --- Public methods --- */
 
@@ -67,7 +71,7 @@ public class ContainerPackageExtractor {
      * Get all Debian packages by executing "dpkg -l" in a container and parsing the output.
      */
     public static Collection<DependencyInfo> extractDebianPackages(DockerClient dockerClient, String containerId) {
-        Collection<DependencyInfo> debianPackages = new ArrayList<>();
+        Collection<DependencyInfo> packages = new LinkedList<>();
 
         // create execute command
         ExecCreateCmdResponse execResponse = dockerClient.execCreateCmd(containerId)
@@ -111,7 +115,7 @@ public class ContainerPackageExtractor {
                     }
 
                     String arch = args.get(DEBIAN_PACKAGE_ARCH_INDEX);
-                    debianPackages.add(new DependencyInfo(
+                    packages.add(new DependencyInfo(
                             null, MessageFormat.format(DEBIAN_PACKAGE_PATTERN, name, version, arch), version));
                 }
             }
@@ -122,14 +126,14 @@ public class ContainerPackageExtractor {
         } catch (IOException e) {
             logger.warn("Error reading output: {}", e.getMessage());
         }
-        return debianPackages;
+        return packages;
     }
 
     /**
      * Get all RPM packages by executing "rpm -qa" in a container and parsing the output.
      */
     public static Collection<DependencyInfo> extractRpmPackages(DockerClient dockerClient, String containerId) {
-        Collection<DependencyInfo> rpmPackages = new ArrayList<>();
+        Collection<DependencyInfo> packages = new LinkedList<>();
 
         // create execute command
         ExecCreateCmdResponse execResponse = dockerClient.execCreateCmd(containerId)
@@ -151,7 +155,7 @@ public class ContainerPackageExtractor {
         String[] lines = linesStr.split("\\r?\\n");
         for (String line : lines) {
             if (StringUtils.isNotBlank(line)) {
-                rpmPackages.add(new DependencyInfo(null, MessageFormat.format(RPM_PACKAGE_PATTERN, line), null));
+                packages.add(new DependencyInfo(null, MessageFormat.format(RPM_PACKAGE_PATTERN, line), null));
             }
         }
 
@@ -160,14 +164,14 @@ public class ContainerPackageExtractor {
         } catch (IOException e) {
             logger.warn("Error reading output: {}", e.getMessage());
         }
-        return rpmPackages;
+        return packages;
     }
 
     /**
      * Get all Alpine packages by executing "apk info -vv" in a container and parsing the output.
      */
     public static Collection<DependencyInfo> extractAlpinePackages(DockerClient dockerClient, String containerId) {
-        Collection<DependencyInfo> alpinePackages = new ArrayList<>();
+        Collection<DependencyInfo> packages = new LinkedList<>();
 
         // create execute command
         ExecCreateCmdResponse execResponse = dockerClient.execCreateCmd(String.valueOf(containerId))
@@ -184,7 +188,7 @@ public class ContainerPackageExtractor {
             logger.warn("Error writing output: {}", e.getMessage());
         }
 
-        // parse rpm packages
+        // parse Alpine packages
         String linesStr = new String(outputStream.toByteArray());
         String[] lines = linesStr.split("\\r?\\n");
         for (String line : lines) {
@@ -192,16 +196,89 @@ public class ContainerPackageExtractor {
             if (line.contains(ALPINE_PACKAGE_SPLIT_PATTERN)) {
                 String[] split = line.split(ALPINE_PACKAGE_SPLIT_PATTERN);
                 if (split.length > 0) {
-                    alpinePackages.add(new DependencyInfo(null, MessageFormat.format(ALPINE_PACKAGE_PATTERN, split[0]), null));
+                    packages.add(new DependencyInfo(null, MessageFormat.format(ALPINE_PACKAGE_PATTERN, split[0]), null));
                 }
             }
         }
 
-        try{
+        try {
             outputStream.close();
         } catch (IOException e) {
             logger.warn("Error reading output: {}", e.getMessage());
         }
-        return alpinePackages;
+        return packages;
     }
+
+    /**
+     * Get all Arch Linux packages by executing "pacman -Q" in a container and parsing the output.
+     */
+    public static Collection<DependencyInfo> extractArchLinuxPackages(DockerClient dockerClient, String containerId) {
+        Collection<DependencyInfo> packages = new LinkedList<>();
+
+        String arch = getSystemArchitecture(dockerClient, containerId);
+        if (StringUtils.isNotBlank(arch)) {
+            // create execute command
+            ExecCreateCmdResponse execResponse = dockerClient.execCreateCmd(String.valueOf(containerId))
+                    .withAttachStdout(true)
+                    .withCmd(ARCH_LINUX_PACKAGES_LIST_COMMAND).exec();
+
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            try {
+                dockerClient.execStartCmd(execResponse.getId())
+                        .withDetach(false).withTty(false)
+                        .withExecId(execResponse.getId())
+                        .exec(new ExecStartResultCallback(outputStream, System.err)).awaitCompletion();
+            } catch (InterruptedException e) {
+                logger.warn("Error writing output: {}", e.getMessage());
+            }
+
+            // parse Arch Linux packages
+            String linesStr = new String(outputStream.toByteArray());
+            String[] lines = linesStr.split("\\r?\\n");
+            for (String line : lines) {
+                line = line.replaceAll(NON_ASCII_CHARS, EMPTY_STRING);
+                String[] split = line.split(ARCH_LINUX_PACKAGE_SPLIT_PATTERN);
+                if (split.length == 2) {
+                    packages.add(new DependencyInfo(null, MessageFormat.format(ARCH_LINUX_PACKAGE_PATTERN, split[0], split[1], arch), null));
+                }
+            }
+
+            try {
+                outputStream.close();
+            } catch (IOException e) {
+                logger.warn("Error reading output: {}", e.getMessage());
+            }
+        }
+        return packages;
+    }
+
+    private static String getSystemArchitecture(DockerClient dockerClient, String containerId) {
+        String arch = "";
+        ExecCreateCmdResponse execResponse = dockerClient.execCreateCmd(String.valueOf(containerId))
+                .withAttachStdout(true)
+                .withCmd(ARCH_LINUX_ARCHITECTURE_COMMAND).exec();
+
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        try {
+            dockerClient.execStartCmd(execResponse.getId())
+                    .withDetach(false).withTty(false)
+                    .withExecId(execResponse.getId())
+                    .exec(new ExecStartResultCallback(outputStream, System.err)).awaitCompletion();
+        } catch (InterruptedException e) {
+            logger.warn("Error writing output: {}", e.getMessage());
+        }
+
+        String linesStr = new String(outputStream.toByteArray()).trim();
+        if (StringUtils.isNotBlank(linesStr) && SYSTEM_ARCHITECTURES.contains(linesStr)) {
+            arch = linesStr;
+        }
+
+        try {
+            outputStream.close();
+        } catch (IOException e) {
+            logger.warn("Error reading output: {}", e.getMessage());
+        }
+        return arch;
+    }
+
 }

@@ -293,6 +293,13 @@ public class DockerAgent extends CommandLineAgent {
                 logger.info("Found {} Alpine Packages", alpinePackages.size());
             }
 
+            // get Arch Linux packages
+            Collection<DependencyInfo> archLinuxPackages = ContainerPackageExtractor.extractArchLinuxPackages(dockerClient, containerId);
+            if (!archLinuxPackages.isEmpty()) {
+                projectInfo.getDependencies().addAll(archLinuxPackages);
+                logger.info("Found {} Arch Linux Packages", archLinuxPackages.size());
+            }
+
             // export container tar file
             File containerTarFile = new File(TEMP_FOLDER, containerName + TAR_SUFFIX);
             File containerTarExtractDir = new File(TEMP_FOLDER, containerName);
