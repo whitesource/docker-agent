@@ -15,6 +15,8 @@
  */
 package org.whitesource.docker;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.whitesource.fs.StatusCode;
 
 /**
@@ -23,19 +25,25 @@ import org.whitesource.fs.StatusCode;
  * @author tom.shapira
  */
 public class Main {
+
     /* --- Static members --- */
+
+    private static final Logger logger = LoggerFactory.getLogger(DockerAgent.class);
 
     private static final CommandLineArgs commandLineArgs = new CommandLineArgs();
 
     /* --- Main --- */
 
     public static void main(String[] args) {
+        logger.info("Starting WhiteSource Docker Agent");
         ConfigManager configManager = new ConfigManager();
         PropertiesResult propsResult = configManager.getProperties(args, commandLineArgs);
 
-        if(isValidResult(propsResult))
+        if (isValidResult(propsResult)) {
             System.exit(propsResult.getStatus().getValue());
+        }
 
+        logger.info("Connecting to Docker machine");
         Connector dockerConnector = new Connector();
         StatusCode statusCode = dockerConnector.getStatusCode(propsResult.getConfigProps(), commandLineArgs);
         System.exit(statusCode.getValue());
