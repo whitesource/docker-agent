@@ -33,7 +33,19 @@ public class ExtensionUtils {
     public static final String REGEX_OR = "|";
     public static final String GLOB_PATTERN_PREFIX = "**/*.";
 
-    public static final List<String> SOURCE_EXTENSIONS = Arrays.asList("js", "php");
+    public static final List<String> SOURCE_EXTENSIONS = Arrays.asList(
+            "c", "cc", "cp", "cpp", "cxx", "c\\+\\+", "h", "hh", "hpp", "hxx", "h\\+\\+", "m", "mm",  "pch", // C and C++
+            "c#", "cs", "csharp",  // C#
+            "go", "goc",  // GO
+            "js", // JavaScript
+            "pl", "plx", "pm", "ph", "cgi", "fcgi", "pod", "psgi", "al", "perl", "t", // PERL
+            "pl6", "p6m", "p6l", "pm6", "nqp", "6pl", "6pm", "p6", // PERL6
+            "php", // PHP
+            "py", // Python
+            "rb", // Ruby
+            "swift", // Swift
+            "java", // Java
+            "clj", "cljx", "cljs", "cljc"); // Clojure
     public static final List<String> BINARY_EXTENSIONS = Arrays.asList("jar", "egg", "tar.gz", "tgz", "zip", "whl", "gem",
             "apk", "air", "dmg", "exe", "gem", "gzip", "msi", "nupkg", "swc", "swf", "tar.bz2", "pkg.tar.xz", "(u)?deb", "(a)?rpm");
     public static final List<String> ARCHIVE_EXTENSIONS = Arrays.asList("war", "ear", "zip", "whl", "tar.gz", "tgz", "tar");
