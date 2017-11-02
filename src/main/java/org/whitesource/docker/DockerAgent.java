@@ -65,6 +65,7 @@ public class DockerAgent extends CommandLineAgent {
     public static final String UNIX_FILE_SEPARATOR = "/";
     public static final String DOCKER_NAME_FORMAT_STRING = "{0} {1} ({2})";
     public static final MessageFormat DOCKER_NAME_FORMAT = new MessageFormat(DOCKER_NAME_FORMAT_STRING);
+    public static final String INCLUDES_EXCLUDES_SEPARATOR_REGEX = "[,;\\s]+";
 
     // docker client configuration
     public static final int TIMEOUT = 300000;
@@ -80,6 +81,10 @@ public class DockerAgent extends CommandLineAgent {
     public static final String DOCKER_PASSWORD = "docker.password";
     public static final String DOCKER_READ_TIMEOUT = "docker.readTimeOut";
     public static final String DOCKER_CONNECTION_TIMEOUT = "docker.connectionTimeOut";
+    public static final String USER_INCLUDES = "includes";
+    public static final String USER_EXCLUDES = "excludes";
+    public static final String USER_CASE_SENSITIVE = "case.sensitive.glob";
+    public static final String USER_FOLLOW_SYMLINKS = "followSymbolicLink";
 
     // directory scanner defaults
     public static final int ARCHIVE_EXTRACTION_DEPTH = 2;
@@ -323,9 +328,15 @@ public class DockerAgent extends CommandLineAgent {
 
                 // scan files
                 String extractPath = containerTarExtractDir.getPath();
+                String[] includes = config.getProperty(USER_INCLUDES) != null ? config.getProperty(USER_INCLUDES).split(INCLUDES_EXCLUDES_SEPARATOR_REGEX) : INCLUDES;
+                String[] excludes = config.getProperty(USER_INCLUDES) != null ? config.getProperty(USER_EXCLUDES).split(INCLUDES_EXCLUDES_SEPARATOR_REGEX) : EXCLUDES;
+                boolean caseSensitive = config.getProperty(USER_CASE_SENSITIVE) != null ? Boolean.valueOf(config.getProperty(USER_CASE_SENSITIVE)) : CASE_SENSITIVE_GLOB;
+                boolean followSymbolic = config.getProperty(USER_FOLLOW_SYMLINKS) != null ? Boolean.valueOf(config.getProperty(USER_FOLLOW_SYMLINKS)) : FOLLOW_SYMLINKS;
+
                 List<DependencyInfo> dependencyInfos = new FileSystemScanner(false, null).createDependencies(
-                        Arrays.asList(extractPath), null, INCLUDES, EXCLUDES, CASE_SENSITIVE_GLOB,
-                        ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, false, FOLLOW_SYMLINKS, new ArrayList<String>(), PARTIAL_SHA1_MATCH);
+                        Arrays.asList(extractPath), null, includes, excludes, caseSensitive,
+                        ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, false, followSymbolic,
+                        new ArrayList<String>(), PARTIAL_SHA1_MATCH);
 
                 // modify file paths relative to the container
                 for (DependencyInfo dependencyInfo : dependencyInfos) {
