@@ -9,6 +9,7 @@ import org.whitesource.fs.StatusCode;
 import java.util.Properties;
 
 import static org.whitesource.agent.ConfigPropertyKeys.*;
+import static org.whitesource.docker.DockerAgent.DOCKER_URL;
 
 /**
  * @author eugen.horovitz
@@ -22,11 +23,12 @@ public class ConnectorTest {
 
         ConfigManager configManager = new ConfigManager();
 
-        PropertiesResult propsResult = configManager.getProperties(new String[]{"-i", "ubuntu"}, commandLineArgs);
+        PropertiesResult propsResult = configManager.getProperties(new String[]{"-i", "alpine"}, commandLineArgs);
         Assert.assertEquals(propsResult.getStatus(), StatusCode.SUCCESS);
 
         Properties props = propsResult.getConfigProps();
-        props.setProperty(CHECK_POLICIES_PROPERTY_KEY, "true");
+        //props.setProperty(CHECK_POLICIES_PROPERTY_KEY, "true");
+        props.setProperty(DOCKER_URL, "tcp://127.0.0.1:2375");
         StatusCode statusCode = dockerConnector.getStatusCode(props, commandLineArgs);
         Assert.assertEquals(StatusCode.POLICY_VIOLATION, statusCode);
 

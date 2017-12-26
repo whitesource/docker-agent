@@ -168,7 +168,7 @@ public class DockerAgent extends CommandLineAgent {
 
         String dockerTlsVerify = config.getProperty(DOCKER_WITH_TLS_VERIFY);
         if (StringUtils.isBlank(dockerTlsVerify)) {
-            logger.error("Missing Docker TlsVerify");
+            logger.warn("Missing Docker TlsVerify");
         } else {
             logger.info("Docker TlsVerify: {}", dockerTlsVerify);
             configBuilder.withDockerTlsVerify(dockerTlsVerify);
