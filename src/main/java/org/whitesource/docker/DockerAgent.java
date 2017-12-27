@@ -58,46 +58,46 @@ public class DockerAgent extends CommandLineAgent {
 
     private static final Logger logger = LoggerFactory.getLogger(DockerAgent.class);
 
-    public static final String TEMP_FOLDER = System.getProperty("java.io.tmpdir") + File.separator + "WhiteSource-Docker";
-    public static final String ARCHIVE_EXTRACTOR_TEMP_FOLDER = System.getProperty("java.io.tmpdir") + File.separator + "WhiteSource-ArchiveExtractor";
-    public static final String TAR_SUFFIX = ".tar";
-    public static final int SHORT_CONTAINER_ID_LENGTH = 12;
-    public static final String UNIX_FILE_SEPARATOR = "/";
-    public static final String DOCKER_NAME_FORMAT_STRING = "{0} {1} ({2})";
-    public static final MessageFormat DOCKER_NAME_FORMAT = new MessageFormat(DOCKER_NAME_FORMAT_STRING);
-    public static final String INCLUDES_EXCLUDES_SEPARATOR_REGEX = "[,;\\s]+";
+    private static final String TEMP_FOLDER = System.getProperty("java.io.tmpdir") + File.separator + "WhiteSource-Docker";
+    private static final String ARCHIVE_EXTRACTOR_TEMP_FOLDER = System.getProperty("java.io.tmpdir") + File.separator + "WhiteSource-ArchiveExtractor";
+    private static final String TAR_SUFFIX = ".tar";
+    private static final int SHORT_CONTAINER_ID_LENGTH = 12;
+    private static final String UNIX_FILE_SEPARATOR = "/";
+    private static final String DOCKER_NAME_FORMAT_STRING = "{0} {1} ({2})";
+    private static final MessageFormat DOCKER_NAME_FORMAT = new MessageFormat(DOCKER_NAME_FORMAT_STRING);
+    private static final String INCLUDES_EXCLUDES_SEPARATOR_REGEX = "[,;\\s]+";
 
     // docker client configuration
-    public static final int TIMEOUT = 300000;
-    public static final int MAX_TOTAL_CONNECTIONS = 100;
-    public static final int MAX_PER_ROUTE_CONNECTIONS = 10;
+    private static final int TIMEOUT = 300000;
+    private static final int MAX_TOTAL_CONNECTIONS = 100;
+    private static final int MAX_PER_ROUTE_CONNECTIONS = 10;
 
     // property keys for the configuration file
-    public static final String DOCKER_API_VERSION = "docker.apiVersion";
+    private static final String DOCKER_API_VERSION = "docker.apiVersion";
     public static final String DOCKER_URL = "docker.url";
-    public static final String DOCKER_CERT_PATH = "docker.certPath";
-    public static final String DOCKER_WITH_TLS_VERIFY = "docker.withDockerTlsVerify";
-    public static final String DOCKER_USERNAME = "docker.username";
-    public static final String DOCKER_PASSWORD = "docker.password";
-    public static final String DOCKER_READ_TIMEOUT = "docker.readTimeOut";
-    public static final String DOCKER_CONNECTION_TIMEOUT = "docker.connectionTimeOut";
-    public static final String USER_INCLUDES = "includes";
-    public static final String USER_EXCLUDES = "excludes";
-    public static final String USER_CASE_SENSITIVE = "case.sensitive.glob";
-    public static final String USER_FOLLOW_SYMLINKS = "followSymbolicLink";
+    private static final String DOCKER_CERT_PATH = "docker.certPath";
+    private static final String DOCKER_WITH_TLS_VERIFY = "docker.withDockerTlsVerify";
+    private static final String DOCKER_USERNAME = "docker.username";
+    private static final String DOCKER_PASSWORD = "docker.password";
+    private static final String DOCKER_READ_TIMEOUT = "docker.readTimeOut";
+    private static final String DOCKER_CONNECTION_TIMEOUT = "docker.connectionTimeOut";
+    private static final String USER_INCLUDES = "includes";
+    private static final String USER_EXCLUDES = "excludes";
+    private static final String USER_CASE_SENSITIVE = "case.sensitive.glob";
+    private static final String USER_FOLLOW_SYMLINKS = "followSymbolicLink";
 
     // directory scanner defaults
-    public static final int ARCHIVE_EXTRACTION_DEPTH = 2;
-    public static final boolean CASE_SENSITIVE_GLOB = false;
-    public static final boolean FOLLOW_SYMLINKS = false;
-    public static final boolean PARTIAL_SHA1_MATCH = false;
+    private static final int ARCHIVE_EXTRACTION_DEPTH = 2;
+    private static final boolean CASE_SENSITIVE_GLOB = false;
+    private static final boolean FOLLOW_SYMLINKS = false;
+    private static final boolean PARTIAL_SHA1_MATCH = false;
 
-    public static final String AGENT_TYPE = "docker-agent";
-    public static final String AGENT_VERSION = "2.3.9";
+    private static final String AGENT_TYPE = "docker-agent";
+    private static final String AGENT_VERSION = "2.3.9";
     private static final String PLUGIN_VERSION = "1.0.7";
 
-    public static final String WINDOWS_PATH_SEPARATOR = "\\";
-    public static final String UNIX_PATH_SEPARATOR = "/";
+    private static final String WINDOWS_PATH_SEPARATOR = "\\";
+    private static final String UNIX_PATH_SEPARATOR = "/";
 
     /* --- Members --- */
 
@@ -110,7 +110,7 @@ public class DockerAgent extends CommandLineAgent {
     }
 
     public DockerAgent(Properties config, CommandLineArgs commandLineArgs) {
-        super(config);
+        super(config,new ArrayList<>());
         this.commandLineArgs = commandLineArgs;
     }
 
@@ -167,9 +167,7 @@ public class DockerAgent extends CommandLineAgent {
         }
 
         String dockerTlsVerify = config.getProperty(DOCKER_WITH_TLS_VERIFY);
-        if (StringUtils.isBlank(dockerTlsVerify)) {
-            logger.warn("Missing Docker TlsVerify");
-        } else {
+        if (StringUtils.isNotBlank(dockerTlsVerify)) {
             logger.info("Docker TlsVerify: {}", dockerTlsVerify);
             configBuilder.withDockerTlsVerify(dockerTlsVerify);
         }
@@ -329,12 +327,12 @@ public class DockerAgent extends CommandLineAgent {
                 // scan files
                 String extractPath = containerTarExtractDir.getPath();
                 String[] includes = config.getProperty(USER_INCLUDES) != null ? config.getProperty(USER_INCLUDES).split(INCLUDES_EXCLUDES_SEPARATOR_REGEX) : INCLUDES;
-                String[] excludes = config.getProperty(USER_INCLUDES) != null ? config.getProperty(USER_EXCLUDES).split(INCLUDES_EXCLUDES_SEPARATOR_REGEX) : EXCLUDES;
+                String[] excludes = config.getProperty(USER_EXCLUDES) != null ? config.getProperty(USER_EXCLUDES).split(INCLUDES_EXCLUDES_SEPARATOR_REGEX) : EXCLUDES;
                 boolean caseSensitive = config.getProperty(USER_CASE_SENSITIVE) != null ? Boolean.valueOf(config.getProperty(USER_CASE_SENSITIVE)) : CASE_SENSITIVE_GLOB;
                 boolean followSymbolic = config.getProperty(USER_FOLLOW_SYMLINKS) != null ? Boolean.valueOf(config.getProperty(USER_FOLLOW_SYMLINKS)) : FOLLOW_SYMLINKS;
 
-                List<DependencyInfo> dependencyInfos = new FileSystemScanner(false, null).createDependencies(
-                        Arrays.asList(extractPath), null, includes, excludes, caseSensitive,
+                List<DependencyInfo> dependencyInfos = new FileSystemScanner(false, null).createProjects(
+                        Arrays.asList(extractPath), false, includes, excludes, caseSensitive,
                         ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, false, followSymbolic,
                         new ArrayList<String>(), PARTIAL_SHA1_MATCH);
 
