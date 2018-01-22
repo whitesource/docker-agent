@@ -35,11 +35,13 @@ import org.apache.commons.lang.StringUtils;
 import org.codehaus.plexus.archiver.ArchiverException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.whitesource.agent.CommandLineAgent;
 import org.whitesource.agent.FileSystemScanner;
+import org.whitesource.agent.ProjectsSender;
 import org.whitesource.agent.api.model.AgentProjectInfo;
 import org.whitesource.agent.api.model.Coordinates;
 import org.whitesource.agent.api.model.DependencyInfo;
+import org.whitesource.fs.FSAConfiguration;
+import org.whitesource.fs.StatusCode;
 
 import java.io.*;
 import java.text.MessageFormat;
@@ -52,7 +54,7 @@ import static org.whitesource.docker.ExtensionUtils.*;
  *
  * @author tom.shapira
  */
-public class DockerAgent extends CommandLineAgent {
+public class DockerAgent {
 
     /* --- Static members --- */
 
@@ -65,7 +67,6 @@ public class DockerAgent extends CommandLineAgent {
     private static final String UNIX_FILE_SEPARATOR = "/";
     private static final String DOCKER_NAME_FORMAT_STRING = "{0} {1} ({2})";
     private static final MessageFormat DOCKER_NAME_FORMAT = new MessageFormat(DOCKER_NAME_FORMAT_STRING);
-    private static final String INCLUDES_EXCLUDES_SEPARATOR_REGEX = "[,;\\s]+";
 
     // docker client configuration
     private static final int TIMEOUT = 300000;
@@ -81,27 +82,18 @@ public class DockerAgent extends CommandLineAgent {
     private static final String DOCKER_PASSWORD = "docker.password";
     private static final String DOCKER_READ_TIMEOUT = "docker.readTimeOut";
     private static final String DOCKER_CONNECTION_TIMEOUT = "docker.connectionTimeOut";
-    private static final String USER_INCLUDES = "includes";
-    private static final String USER_EXCLUDES = "excludes";
-    private static final String USER_CASE_SENSITIVE = "case.sensitive.glob";
-    private static final String USER_FOLLOW_SYMLINKS = "followSymbolicLink";
 
     // directory scanner defaults
-    private static final int ARCHIVE_EXTRACTION_DEPTH = 2;
-    private static final boolean CASE_SENSITIVE_GLOB = false;
-    private static final boolean FOLLOW_SYMLINKS = false;
     private static final boolean PARTIAL_SHA1_MATCH = false;
-
-    private static final String AGENT_TYPE = "docker-agent";
-    private static final String AGENT_VERSION = "2.3.9";
-    private static final String PLUGIN_VERSION = "1.0.7";
-
+    private static final int ARCHIVE_EXTRACTION_DEPTH = 2;
     private static final String WINDOWS_PATH_SEPARATOR = "\\";
     private static final String UNIX_PATH_SEPARATOR = "/";
 
     /* --- Members --- */
 
     private final CommandLineArgs commandLineArgs;
+    private final Properties config;
+    private final FSAConfiguration fsaConfiguration;
 
     /* --- Constructors --- */
 
@@ -110,14 +102,21 @@ public class DockerAgent extends CommandLineAgent {
     }
 
     public DockerAgent(Properties config, CommandLineArgs commandLineArgs) {
-        super(config,new ArrayList<>());
+        //super(config,new ArrayList<>());
+        this.config = config;
         this.commandLineArgs = commandLineArgs;
+        this.fsaConfiguration = new FSAConfiguration(config);
     }
 
-    /* --- Overridden methods --- */
+    /* --- Public methods --- */
 
-    @Override
-    protected Collection<AgentProjectInfo> createProjects() {
+    public StatusCode sendRequest() {
+        Collection<AgentProjectInfo> projects = createProjects();
+        ProjectsSender projectsSender = new ProjectsSender(fsaConfiguration.getSender(),fsaConfiguration.getOffline(), fsaConfiguration.getRequest(), new DockerAgentInfo());
+        return projectsSender.sendRequest(projects).getValue();
+    }
+
+    private Collection<AgentProjectInfo> createProjects() {
         DockerClient dockerClient = buildDockerClient();
         if (dockerClient == null) {
             logger.error("Error creating docker client, exiting");
@@ -125,21 +124,6 @@ public class DockerAgent extends CommandLineAgent {
         } else {
             return createProjects(dockerClient);
         }
-    }
-
-    @Override
-    protected String getAgentType() {
-        return AGENT_TYPE;
-    }
-
-    @Override
-    protected String getAgentVersion() {
-        return AGENT_VERSION;
-    }
-
-    @Override
-    protected String getPluginVersion() {
-        return PLUGIN_VERSION;
     }
 
     /* --- Private methods --- */
@@ -326,14 +310,9 @@ public class DockerAgent extends CommandLineAgent {
 
                 // scan files
                 String extractPath = containerTarExtractDir.getPath();
-                String[] includes = config.getProperty(USER_INCLUDES) != null ? config.getProperty(USER_INCLUDES).split(INCLUDES_EXCLUDES_SEPARATOR_REGEX) : INCLUDES;
-                String[] excludes = config.getProperty(USER_EXCLUDES) != null ? config.getProperty(USER_EXCLUDES).split(INCLUDES_EXCLUDES_SEPARATOR_REGEX) : EXCLUDES;
-                boolean caseSensitive = config.getProperty(USER_CASE_SENSITIVE) != null ? Boolean.valueOf(config.getProperty(USER_CASE_SENSITIVE)) : CASE_SENSITIVE_GLOB;
-                boolean followSymbolic = config.getProperty(USER_FOLLOW_SYMLINKS) != null ? Boolean.valueOf(config.getProperty(USER_FOLLOW_SYMLINKS)) : FOLLOW_SYMLINKS;
-
-                List<DependencyInfo> dependencyInfos = new FileSystemScanner(false, null).createProjects(
-                        Arrays.asList(extractPath), false, includes, excludes, caseSensitive,
-                        ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, false, followSymbolic,
+                List<DependencyInfo> dependencyInfos = new FileSystemScanner(fsaConfiguration.getResolver(), fsaConfiguration.getAgent()).createProjects(
+                        Arrays.asList(extractPath), false,fsaConfiguration.getAgent().getIncludes(), fsaConfiguration.getAgent().getExcludes(), fsaConfiguration.getAgent().getGlobCaseSensitive(),
+                        ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, false, fsaConfiguration.getAgent().isFollowSymlinks(),
                         new ArrayList<String>(), PARTIAL_SHA1_MATCH);
 
                 // modify file paths relative to the container
@@ -380,7 +359,7 @@ public class DockerAgent extends CommandLineAgent {
     /**
      * Extract matching files from the tar archive.
      */
-    public void extractTarArchive(File containerTarFile, File containerTarExtractDir) {
+    private void extractTarArchive(File containerTarFile, File containerTarExtractDir) {
         TarArchiveInputStream tais = null;
         FileInputStream fis = null;
         try {
