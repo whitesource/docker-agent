@@ -45,7 +45,7 @@ public class Main {
 
         logger.info("Connecting to Docker machine");
         Connector dockerConnector = new Connector();
-        StatusCode statusCode = dockerConnector.getStatusCode(propsResult.getConfigProps(), commandLineArgs);
+        StatusCode statusCode = dockerConnector.getStatusCode(propsResult.getConfigProps(), commandLineArgs , args);
         System.exit(statusCode.getValue());
     }
 

@@ -30,7 +30,8 @@ public class ConnectorTest {
         Connector dockerConnector = new Connector();
         StatusCode statusCode;
         ConfigManager configManager = new ConfigManager();
-        PropertiesResult propsResult = configManager.getProperties(new String[]{COMMAND_I, ALPINE}, commandLineArgs);
+        String[] args = new String[]{COMMAND_I, ALPINE};
+        PropertiesResult propsResult = configManager.getProperties(args, commandLineArgs);
         Assert.assertEquals(propsResult.getStatus(), StatusCode.SUCCESS);
         Properties props = propsResult.getConfigProps();
         String os = System.getProperty(OS_NAME);
@@ -38,24 +39,24 @@ public class ConnectorTest {
         //Check if the operating system is windows or linux for windows the port will be 2376 and for linux 2375
         if (os.startsWith(WINDOWS)) {
             props.setProperty(DOCKER_WITH_DOCKER_TLS_VERIFY, TRUE);
-            statusCode = dockerConnector.getStatusCode(props, commandLineArgs);
+            statusCode = dockerConnector.getStatusCode(props, commandLineArgs, args);
             Assert.assertEquals(StatusCode.SUCCESS, statusCode);
         } else {
             props.setProperty(DOCKER_WITH_DOCKER_TLS_VERIFY, TRUE);
-            statusCode = dockerConnector.getStatusCode(props, commandLineArgs);
+            statusCode = dockerConnector.getStatusCode(props, commandLineArgs, args);
             Assert.assertEquals(StatusCode.SUCCESS, statusCode);
         }
 
         //this should be check after setting up policies in the server
         props.setProperty(CHECK_POLICIES_PROPERTY_KEY, FALSE);
-        statusCode = dockerConnector.getStatusCode(props, commandLineArgs);
+        statusCode = dockerConnector.getStatusCode(props, commandLineArgs, args);
         Assert.assertEquals(StatusCode.SUCCESS, statusCode);
 
         props.setProperty(PROXY_HOST_PROPERTY_KEY, "localhost");
         props.setProperty(PROXY_PORT_PROPERTY_KEY, "8089");
         props.setProperty(PROXY_USER_PROPERTY_KEY, "no-name");
         props.setProperty(PROXY_PASS_PROPERTY_KEY, "wrong-pass");
-        statusCode = dockerConnector.getStatusCode(props, commandLineArgs);
+        statusCode = dockerConnector.getStatusCode(props, commandLineArgs, args);
         Assert.assertEquals(StatusCode.CONNECTION_FAILURE, statusCode);
     }
 }

@@ -100,14 +100,14 @@ public class DockerAgent {
     /* --- Constructors --- */
 
     public DockerAgent(Properties config) {
-        this(config, new CommandLineArgs());
+        this(config, new CommandLineArgs(), new String[0]);
     }
 
-    public DockerAgent(Properties config, CommandLineArgs commandLineArgs) {
+    public DockerAgent(Properties config, CommandLineArgs commandLineArgs, String[] args) {
         //super(config,new ArrayList<>());
         this.config = config;
         this.commandLineArgs = commandLineArgs;
-        this.fsaConfiguration = new FSAConfiguration(config);
+        this.fsaConfiguration = new FSAConfiguration(config,args);
     }
 
     /* --- Public methods --- */

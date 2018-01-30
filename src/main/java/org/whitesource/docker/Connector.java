@@ -20,7 +20,7 @@ public class Connector {
 
     /* --- Public methods --- */
 
-    public StatusCode getStatusCode(Properties configProps, CommandLineArgs commandLineArgs) {
+    public StatusCode getStatusCode(Properties configProps, CommandLineArgs commandLineArgs, String[] args) {
         try {
             // read log level from configuration file
             ch.qos.logback.classic.Logger root = (ch.qos.logback.classic.Logger) LoggerFactory.getLogger(Logger.ROOT_LOGGER_NAME);
@@ -28,7 +28,7 @@ public class Connector {
             root.setLevel(Level.toLevel(logLevel, Level.INFO));
 
             // run the agent
-            DockerAgent dockerAgent = new DockerAgent(configProps, commandLineArgs);
+            DockerAgent dockerAgent = new DockerAgent(configProps, commandLineArgs, args);
             StatusCode statusCode = dockerAgent.sendRequest();
             if (statusCode!=StatusCode.SUCCESS)
                 return statusCode;
