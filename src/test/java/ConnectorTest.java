@@ -9,31 +9,45 @@ import org.whitesource.fs.StatusCode;
 import java.util.Properties;
 
 import static org.whitesource.agent.ConfigPropertyKeys.*;
-import static org.whitesource.docker.DockerAgent.DOCKER_URL;
+
 
 /**
  * @author eugen.horovitz
  */
 public class ConnectorTest {
 
+    public static final String DOCKER_WITH_DOCKER_TLS_VERIFY = "docker.withDockerTlsVerify";
+    public static final String TRUE = "true";
+    public static final String WINDOWS = "Windows";
+    public static final String OS_NAME = "os.name";
+    public static final String ALPINE = "alpine";
+    public static final String COMMAND_I = "-i";
+    public static final String FALSE = "false";
+
     @Test
     public void shouldReturnRightStatus() {
         CommandLineArgs commandLineArgs = new CommandLineArgs();
         Connector dockerConnector = new Connector();
-
+        StatusCode statusCode;
         ConfigManager configManager = new ConfigManager();
-
-        PropertiesResult propsResult = configManager.getProperties(new String[]{"-i", "alpine"}, commandLineArgs);
+        PropertiesResult propsResult = configManager.getProperties(new String[]{COMMAND_I, ALPINE}, commandLineArgs);
         Assert.assertEquals(propsResult.getStatus(), StatusCode.SUCCESS);
-
         Properties props = propsResult.getConfigProps();
-        //props.setProperty(CHECK_POLICIES_PROPERTY_KEY, "true");
-        props.setProperty(DOCKER_URL, "tcp://127.0.0.1:2375");
-        StatusCode statusCode = dockerConnector.getStatusCode(props, commandLineArgs);
-        Assert.assertEquals(StatusCode.POLICY_VIOLATION, statusCode);
+        String os = System.getProperty(OS_NAME);
+
+        //Check if the operating system is windows or linux for windows the port will be 2376 and for linux 2375
+        if (os.startsWith(WINDOWS)) {
+            props.setProperty(DOCKER_WITH_DOCKER_TLS_VERIFY, TRUE);
+            statusCode = dockerConnector.getStatusCode(props, commandLineArgs);
+            Assert.assertEquals(StatusCode.SUCCESS, statusCode);
+        } else {
+            props.setProperty(DOCKER_WITH_DOCKER_TLS_VERIFY, TRUE);
+            statusCode = dockerConnector.getStatusCode(props, commandLineArgs);
+            Assert.assertEquals(StatusCode.SUCCESS, statusCode);
+        }
 
         //this should be check after setting up policies in the server
-        props.setProperty(CHECK_POLICIES_PROPERTY_KEY, "false");
+        props.setProperty(CHECK_POLICIES_PROPERTY_KEY, FALSE);
         statusCode = dockerConnector.getStatusCode(props, commandLineArgs);
         Assert.assertEquals(StatusCode.SUCCESS, statusCode);
 

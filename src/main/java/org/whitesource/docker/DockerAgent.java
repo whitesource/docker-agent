@@ -42,12 +42,13 @@ import org.whitesource.agent.api.model.Coordinates;
 import org.whitesource.agent.api.model.DependencyInfo;
 import org.whitesource.fs.FSAConfiguration;
 import org.whitesource.fs.StatusCode;
+import  org.whitesource.agent.hash.FileExtensions;
 
 import java.io.*;
 import java.text.MessageFormat;
 import java.util.*;
 
-import static org.whitesource.docker.ExtensionUtils.*;
+
 
 /**
  * Scans Docker containers and sends requests to the WhiteSource service.
@@ -60,7 +61,8 @@ public class DockerAgent {
 
     private static final Logger logger = LoggerFactory.getLogger(DockerAgent.class);
 
-    private static final String TEMP_FOLDER = System.getProperty("java.io.tmpdir") + File.separator + "WhiteSource-Docker";
+    public static final String WHITE_SOURCE_DOCKER = "WhiteSource-Docker";
+    private static final String TEMP_FOLDER = System.getProperty("java.io.tmpdir") + File.separator + WHITE_SOURCE_DOCKER;
     private static final String ARCHIVE_EXTRACTOR_TEMP_FOLDER = System.getProperty("java.io.tmpdir") + File.separator + "WhiteSource-ArchiveExtractor";
     private static final String TAR_SUFFIX = ".tar";
     private static final int SHORT_CONTAINER_ID_LENGTH = 12;
@@ -75,7 +77,7 @@ public class DockerAgent {
 
     // property keys for the configuration file
     private static final String DOCKER_API_VERSION = "docker.apiVersion";
-    public static final String DOCKER_URL = "docker.url";
+    private static final String DOCKER_URL = "docker.url";
     private static final String DOCKER_CERT_PATH = "docker.certPath";
     private static final String DOCKER_WITH_TLS_VERIFY = "docker.withDockerTlsVerify";
     private static final String DOCKER_USERNAME = "docker.username";
@@ -311,16 +313,19 @@ public class DockerAgent {
                 // scan files
                 String extractPath = containerTarExtractDir.getPath();
                 List<DependencyInfo> dependencyInfos = new FileSystemScanner(fsaConfiguration.getResolver(), fsaConfiguration.getAgent()).createProjects(
-                        Arrays.asList(extractPath), false,fsaConfiguration.getAgent().getIncludes(), fsaConfiguration.getAgent().getExcludes(), fsaConfiguration.getAgent().getGlobCaseSensitive(),
-                        ARCHIVE_EXTRACTION_DEPTH, ARCHIVE_INCLUDES, ARCHIVE_EXCLUDES, false, fsaConfiguration.getAgent().isFollowSymlinks(),
+                        Arrays.asList(extractPath), false,fsaConfiguration.getAgent().getIncludes(), fsaConfiguration.getAgent().getExcludes(),
+                        fsaConfiguration.getAgent().getGlobCaseSensitive(), ARCHIVE_EXTRACTION_DEPTH, FileExtensions.ARCHIVE_INCLUDES,
+                        FileExtensions.ARCHIVE_EXCLUDES, false, fsaConfiguration.getAgent().isFollowSymlinks(),
                         new ArrayList<String>(), PARTIAL_SHA1_MATCH);
 
                 // modify file paths relative to the container
                 for (DependencyInfo dependencyInfo : dependencyInfos) {
                     String systemPath = dependencyInfo.getSystemPath();
                     if (StringUtils.isNotBlank(systemPath)) {
-                        String containerRelativePath = systemPath.substring(extractPath.length())
-                                .replace(WINDOWS_PATH_SEPARATOR, UNIX_PATH_SEPARATOR);
+                        String containerRelativePath = systemPath;
+                        containerRelativePath.replace(WINDOWS_PATH_SEPARATOR, UNIX_PATH_SEPARATOR);
+                        containerRelativePath = containerRelativePath.substring(containerRelativePath.indexOf(WHITE_SOURCE_DOCKER + WINDOWS_PATH_SEPARATOR) + WHITE_SOURCE_DOCKER.length() + 1);
+                        containerRelativePath = containerRelativePath.substring(containerRelativePath.indexOf(WINDOWS_PATH_SEPARATOR) +1);
                         dependencyInfo.setSystemPath(containerRelativePath);
                     }
                 }
@@ -370,8 +375,8 @@ public class DockerAgent {
                 if (!entry.isDirectory()) {
                     String entryName = entry.getName();
                     String lowerCaseName = entryName.toLowerCase();
-                    if (lowerCaseName.matches(SOURCE_FILE_PATTERN) || lowerCaseName.matches(BINARY_FILE_PATTERN) ||
-                            lowerCaseName.matches(ARCHIVE_FILE_PATTERN)) {
+                    if (lowerCaseName.matches(FileExtensions.SOURCE_FILE_PATTERN) || lowerCaseName.matches(FileExtensions.BINARY_FILE_PATTERN) ||
+                            lowerCaseName.matches(FileExtensions.ARCHIVE_FILE_PATTERN)) {
                         File file = new File(containerTarExtractDir, entryName);
                         File parent = file.getParentFile();
                         if (!parent.exists()) {
