@@ -1,12 +1,12 @@
 /**
  * Copyright (C) 2016 WhiteSource Ltd.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -42,12 +42,11 @@ import org.whitesource.agent.api.model.Coordinates;
 import org.whitesource.agent.api.model.DependencyInfo;
 import org.whitesource.fs.FSAConfiguration;
 import org.whitesource.fs.StatusCode;
-import  org.whitesource.agent.hash.FileExtensions;
+import org.whitesource.agent.hash.FileExtensions;
 
 import java.io.*;
 import java.text.MessageFormat;
 import java.util.*;
-
 
 
 /**
@@ -78,12 +77,14 @@ public class DockerAgent {
     // property keys for the configuration file
     private static final String DOCKER_API_VERSION = "docker.apiVersion";
     private static final String DOCKER_URL = "docker.url";
+    private static final String DOCKER_ARCHIVE_EXTRACTION_DEPTH = "archiveExtractionDepth";
     private static final String DOCKER_CERT_PATH = "docker.certPath";
     private static final String DOCKER_WITH_TLS_VERIFY = "docker.withDockerTlsVerify";
     private static final String DOCKER_USERNAME = "docker.username";
     private static final String DOCKER_PASSWORD = "docker.password";
     private static final String DOCKER_READ_TIMEOUT = "docker.readTimeOut";
     private static final String DOCKER_CONNECTION_TIMEOUT = "docker.connectionTimeOut";
+
 
     // directory scanner defaults
     private static final boolean PARTIAL_SHA1_MATCH = false;
@@ -107,14 +108,14 @@ public class DockerAgent {
         //super(config,new ArrayList<>());
         this.config = config;
         this.commandLineArgs = commandLineArgs;
-        this.fsaConfiguration = new FSAConfiguration(config,args);
+        this.fsaConfiguration = new FSAConfiguration(config, args);
     }
 
     /* --- Public methods --- */
 
     public StatusCode sendRequest() {
         Collection<AgentProjectInfo> projects = createProjects();
-        ProjectsSender projectsSender = new ProjectsSender(fsaConfiguration.getSender(),fsaConfiguration.getOffline(), fsaConfiguration.getRequest(), new DockerAgentInfo());
+        ProjectsSender projectsSender = new ProjectsSender(fsaConfiguration.getSender(), fsaConfiguration.getOffline(), fsaConfiguration.getRequest(), new DockerAgentInfo());
         return projectsSender.sendRequest(projects).getValue();
     }
 
@@ -189,12 +190,16 @@ public class DockerAgent {
 
     /**
      * Create a {@link AgentProjectInfo} for each container:
-     *   1. Run "dpkg -l" and "rpm -qa" to extract the Debian and RPM package names.
-     *   2. Extract the tar archive and scan with the File System Agent.
+     * 1. Run "dpkg -l" and "rpm -qa" to extract the Debian and RPM package names.
+     * 2. Extract the tar archive and scan with the File System Agent.
      */
     private Collection<AgentProjectInfo> createProjects(DockerClient dockerClient) {
         Collection<AgentProjectInfo> projects = new ArrayList<>();
-
+        String dockerArchiveExtractionDepth = config.getProperty(DOCKER_ARCHIVE_EXTRACTION_DEPTH);
+        int archiveExtractionDepth = ARCHIVE_EXTRACTION_DEPTH;
+        if (StringUtils.isNotBlank(dockerArchiveExtractionDepth)) {
+            archiveExtractionDepth = Integer.parseInt(dockerArchiveExtractionDepth);
+        }
         CreateContainerResponse forcedContainer = null;
         if (StringUtils.isNotBlank(commandLineArgs.dockerImage)) {
             logger.info("Check if image exists '{}'", commandLineArgs.dockerImage);
@@ -313,8 +318,8 @@ public class DockerAgent {
                 // scan files
                 String extractPath = containerTarExtractDir.getPath();
                 List<DependencyInfo> dependencyInfos = new FileSystemScanner(fsaConfiguration.getResolver(), fsaConfiguration.getAgent()).createProjects(
-                        Arrays.asList(extractPath), false,fsaConfiguration.getAgent().getIncludes(), fsaConfiguration.getAgent().getExcludes(),
-                        fsaConfiguration.getAgent().getGlobCaseSensitive(), ARCHIVE_EXTRACTION_DEPTH, FileExtensions.ARCHIVE_INCLUDES,
+                        Arrays.asList(extractPath), false, fsaConfiguration.getAgent().getIncludes(), fsaConfiguration.getAgent().getExcludes(),
+                        fsaConfiguration.getAgent().getGlobCaseSensitive(), archiveExtractionDepth, FileExtensions.ARCHIVE_INCLUDES,
                         FileExtensions.ARCHIVE_EXCLUDES, false, fsaConfiguration.getAgent().isFollowSymlinks(),
                         new ArrayList<String>(), PARTIAL_SHA1_MATCH);
 
@@ -325,7 +330,7 @@ public class DockerAgent {
                         String containerRelativePath = systemPath;
                         containerRelativePath.replace(WINDOWS_PATH_SEPARATOR, UNIX_PATH_SEPARATOR);
                         containerRelativePath = containerRelativePath.substring(containerRelativePath.indexOf(WHITE_SOURCE_DOCKER + WINDOWS_PATH_SEPARATOR) + WHITE_SOURCE_DOCKER.length() + 1);
-                        containerRelativePath = containerRelativePath.substring(containerRelativePath.indexOf(WINDOWS_PATH_SEPARATOR) +1);
+                        containerRelativePath = containerRelativePath.substring(containerRelativePath.indexOf(WINDOWS_PATH_SEPARATOR) + 1);
                         dependencyInfo.setSystemPath(containerRelativePath);
                     }
                 }
