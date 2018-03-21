@@ -316,35 +316,39 @@ public class DockerAgent {
             InputStream is = exportContainerCmd.exec();
             try {
                 // copy input stream to tar archive
-                ExtractProgressIndicator progressIndicator = new ExtractProgressIndicator(containerTarFile, container.getSizeRootFs());
-                new Thread(progressIndicator).start();
-                FileUtils.copyInputStreamToFile(is, containerTarFile);
-                progressIndicator.finished();
-                logger.info("Successfully Exported Container to {}", containerTarFile.getPath());
+                if (containerTarFile != null || container.getSizeRootFs() > 0) {
+                    ExtractProgressIndicator progressIndicator = new ExtractProgressIndicator(containerTarFile, container.getSizeRootFs());
+                    new Thread(progressIndicator).start();
+                    FileUtils.copyInputStreamToFile(is, containerTarFile);
+                    progressIndicator.finished();
+                    logger.info("Successfully Exported Container to {}", containerTarFile.getPath());
 
-                // extract tar archive
-                extractTarArchive(containerTarFile, containerTarExtractDir);
+                    // extract tar archive
+                    extractTarArchive(containerTarFile, containerTarExtractDir);
 
-                // scan files
-                String extractPath = containerTarExtractDir.getPath();
-                List<DependencyInfo> dependencyInfos = new FileSystemScanner(fsaConfiguration.getResolver(), fsaConfiguration.getAgent(), false).createProjects(
-                        Arrays.asList(extractPath), false, fsaConfiguration.getAgent().getIncludes(), fsaConfiguration.getAgent().getExcludes(),
-                        fsaConfiguration.getAgent().getGlobCaseSensitive(), archiveExtractionDepth, FileExtensions.ARCHIVE_INCLUDES,
-                        FileExtensions.ARCHIVE_EXCLUDES, false, fsaConfiguration.getAgent().isFollowSymlinks(),
-                        new ArrayList<String>(), PARTIAL_SHA1_MATCH);
+                    // scan files
+                    String extractPath = containerTarExtractDir.getPath();
+                    List<DependencyInfo> dependencyInfos = new FileSystemScanner(fsaConfiguration.getResolver(), fsaConfiguration.getAgent(), false).createProjects(
+                            Arrays.asList(extractPath), false, fsaConfiguration.getAgent().getIncludes(), fsaConfiguration.getAgent().getExcludes(),
+                            fsaConfiguration.getAgent().getGlobCaseSensitive(), archiveExtractionDepth, FileExtensions.ARCHIVE_INCLUDES,
+                            FileExtensions.ARCHIVE_EXCLUDES, false, fsaConfiguration.getAgent().isFollowSymlinks(),
+                            new ArrayList<String>(), PARTIAL_SHA1_MATCH);
 
-                // modify file paths relative to the container
-                for (DependencyInfo dependencyInfo : dependencyInfos) {
-                    String systemPath = dependencyInfo.getSystemPath();
-                    if (StringUtils.isNotBlank(systemPath)) {
-                        String containerRelativePath = systemPath;
-                        containerRelativePath.replace(WINDOWS_PATH_SEPARATOR, UNIX_PATH_SEPARATOR);
-                        containerRelativePath = containerRelativePath.substring(containerRelativePath.indexOf(WHITE_SOURCE_DOCKER + WINDOWS_PATH_SEPARATOR) + WHITE_SOURCE_DOCKER.length() + 1);
-                        containerRelativePath = containerRelativePath.substring(containerRelativePath.indexOf(WINDOWS_PATH_SEPARATOR) + 1);
-                        dependencyInfo.setSystemPath(containerRelativePath);
+                    // modify file paths relative to the container
+                    for (DependencyInfo dependencyInfo : dependencyInfos) {
+                        String systemPath = dependencyInfo.getSystemPath();
+                        if (StringUtils.isNotBlank(systemPath)) {
+                            String containerRelativePath = systemPath;
+                            containerRelativePath.replace(WINDOWS_PATH_SEPARATOR, UNIX_PATH_SEPARATOR);
+                            containerRelativePath = containerRelativePath.substring(containerRelativePath.indexOf(WHITE_SOURCE_DOCKER + WINDOWS_PATH_SEPARATOR) + WHITE_SOURCE_DOCKER.length() + 1);
+                            containerRelativePath = containerRelativePath.substring(containerRelativePath.indexOf(WINDOWS_PATH_SEPARATOR) + 1);
+                            dependencyInfo.setSystemPath(containerRelativePath);
+                        }
                     }
+                    projectInfo.getDependencies().addAll(dependencyInfos);
+                } else {
+                    logger.warn("Didn't succeed to create tar file {} with size {}", containerTarFile.getName(), container.getSizeRootFs());
                 }
-                projectInfo.getDependencies().addAll(dependencyInfos);
             } catch (IOException e) {
                 logger.error("Error exporting container {}: {}", containerId, e.getMessage());
                 logger.debug("Error exporting container {}", containerId, e);
