@@ -40,9 +40,11 @@ import org.whitesource.agent.ProjectsSender;
 import org.whitesource.agent.api.model.AgentProjectInfo;
 import org.whitesource.agent.api.model.Coordinates;
 import org.whitesource.agent.api.model.DependencyInfo;
-import org.whitesource.fs.FSAConfiguration;
-import org.whitesource.fs.StatusCode;
 import org.whitesource.agent.hash.FileExtensions;
+import org.whitesource.fs.FSAConfiguration;
+import org.whitesource.fs.ProjectsDetails;
+import org.whitesource.fs.StatusCode;
+import org.whitesource.fs.configuration.ResolverConfiguration;
 
 import java.io.*;
 import java.text.MessageFormat;
@@ -84,14 +86,19 @@ public class DockerAgent {
     private static final String DOCKER_PASSWORD = "docker.password";
     private static final String DOCKER_READ_TIMEOUT = "docker.readTimeOut";
     private static final String DOCKER_CONNECTION_TIMEOUT = "docker.connectionTimeOut";
-
+    private static final String NPM_RESOLVE_DEPENDENCIES = "npm.resolveDependencies";
+    private static final String BOWER_RESOLVE_DEPENDENCIES = "bower.resolveDependencies";
+    private static final String NUGET_RESOLVE_DEPENDENCIES = "nuget.resolveDependencies";
+    private static final String MAVEN_RESOLVE_DEPENDENCIES = "maven.resolveDependencies";
+    private static final String PYTHON_RESOLVE_DEPENDENCIES = "python.resolveDependencies";
+    private static final String GRADLE_RESOLVE_DEPENDENCIES = "gradle.resolveDependencies=true";
 
     // directory scanner defaults
     private static final boolean PARTIAL_SHA1_MATCH = false;
     private static final int ARCHIVE_EXTRACTION_DEPTH = 2;
     private static final String WINDOWS_PATH_SEPARATOR = "\\";
     private static final String UNIX_PATH_SEPARATOR = "/";
-
+    public static final String EMPTY_STRING = "";
     /* --- Members --- */
 
     private final CommandLineArgs commandLineArgs;
@@ -116,7 +123,8 @@ public class DockerAgent {
     public StatusCode sendRequest() {
         Collection<AgentProjectInfo> projects = createProjects();
         ProjectsSender projectsSender = new ProjectsSender(fsaConfiguration.getSender(), fsaConfiguration.getOffline(), fsaConfiguration.getRequest(), new DockerAgentInfo());
-        return projectsSender.sendRequest(projects).getValue();
+        final StatusCode[] success = new StatusCode[]{StatusCode.SUCCESS};
+        return projectsSender.sendRequest(new ProjectsDetails(projects, success[0], EMPTY_STRING)).getValue();
     }
 
     private Collection<AgentProjectInfo> createProjects() {
@@ -195,11 +203,13 @@ public class DockerAgent {
      */
     private Collection<AgentProjectInfo> createProjects(DockerClient dockerClient) {
         Collection<AgentProjectInfo> projects = new ArrayList<>();
+        initializeDockerResolvers(fsaConfiguration.getResolver());
         String dockerArchiveExtractionDepth = config.getProperty(DOCKER_ARCHIVE_EXTRACTION_DEPTH);
         int archiveExtractionDepth = ARCHIVE_EXTRACTION_DEPTH;
         if (StringUtils.isNotBlank(dockerArchiveExtractionDepth)) {
             archiveExtractionDepth = Integer.parseInt(dockerArchiveExtractionDepth);
         }
+
         CreateContainerResponse forcedContainer = null;
         if (StringUtils.isNotBlank(commandLineArgs.dockerImage)) {
             logger.info("Check if image exists '{}'", commandLineArgs.dockerImage);
@@ -317,7 +327,7 @@ public class DockerAgent {
 
                 // scan files
                 String extractPath = containerTarExtractDir.getPath();
-                List<DependencyInfo> dependencyInfos = new FileSystemScanner(fsaConfiguration.getResolver(), fsaConfiguration.getAgent()).createProjects(
+                List<DependencyInfo> dependencyInfos = new FileSystemScanner(fsaConfiguration.getResolver(), fsaConfiguration.getAgent(), false).createProjects(
                         Arrays.asList(extractPath), false, fsaConfiguration.getAgent().getIncludes(), fsaConfiguration.getAgent().getExcludes(),
                         fsaConfiguration.getAgent().getGlobCaseSensitive(), archiveExtractionDepth, FileExtensions.ARCHIVE_INCLUDES,
                         FileExtensions.ARCHIVE_EXCLUDES, false, fsaConfiguration.getAgent().isFollowSymlinks(),
@@ -355,6 +365,35 @@ public class DockerAgent {
             dockerClient.removeContainerCmd(forcedContainer.getId()).exec();
         }
         return projects;
+    }
+
+    private void initializeDockerResolvers(ResolverConfiguration resolverConfiguration) {
+        String npmResolveDependencies = config.getProperty(NPM_RESOLVE_DEPENDENCIES);
+        String bowerResolveDependencies = config.getProperty(BOWER_RESOLVE_DEPENDENCIES);
+        String nugetResolveDependencies = config.getProperty(NUGET_RESOLVE_DEPENDENCIES);
+        String mavenResolveDependencies = config.getProperty(MAVEN_RESOLVE_DEPENDENCIES);
+        String pyhtonResolveDependencies = config.getProperty(PYTHON_RESOLVE_DEPENDENCIES);
+        String gradleResolveDependencies = config.getProperty(GRADLE_RESOLVE_DEPENDENCIES);
+
+        if (StringUtils.isNotBlank(npmResolveDependencies)) {
+            resolverConfiguration.setNpmResolveDependencies(Boolean.parseBoolean(npmResolveDependencies));
+        }
+        if (StringUtils.isNotBlank(bowerResolveDependencies)) {
+            resolverConfiguration.setBowerResolveDependencies(Boolean.parseBoolean(bowerResolveDependencies));
+        }
+        if (StringUtils.isNotBlank(nugetResolveDependencies)) {
+            resolverConfiguration.setNugetResolveDependencies(Boolean.parseBoolean(nugetResolveDependencies));
+        }
+        if (StringUtils.isNotBlank(mavenResolveDependencies)) {
+            resolverConfiguration.setMavenResolveDependencies(Boolean.parseBoolean(mavenResolveDependencies));
+        }
+        if (StringUtils.isNotBlank(pyhtonResolveDependencies)) {
+            resolverConfiguration.setPythonResolveDependencies(Boolean.parseBoolean(pyhtonResolveDependencies));
+        }
+
+        if (StringUtils.isNotBlank(gradleResolveDependencies)) {
+            resolverConfiguration.setGradleResolveDependencies(Boolean.parseBoolean(gradleResolveDependencies));
+        }
     }
 
     private boolean imageExists(DockerClient dockerClient, String dockerImage) {
