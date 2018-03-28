@@ -5,8 +5,8 @@ import org.whitesource.contracts.PluginInfo;
 public class DockerAgentInfo implements PluginInfo {
 
     private static final String AGENT_TYPE = "docker-agent";
-    private static final String AGENT_VERSION = "2.3.9";
-    private static final String PLUGIN_VERSION = "18.1.2";
+    private static final String AGENT_VERSION = "2.6.4";
+    private static final String PLUGIN_VERSION = "18.2.2";
 
     @Override
     public String getAgentType() {
