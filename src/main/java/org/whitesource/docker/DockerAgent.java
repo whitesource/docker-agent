@@ -115,7 +115,7 @@ public class DockerAgent {
         //super(config,new ArrayList<>());
         this.config = config;
         this.commandLineArgs = commandLineArgs;
-        this.fsaConfiguration = new FSAConfiguration(config, args);
+        this.fsaConfiguration = new FSAConfiguration(config);
     }
 
     /* --- Public methods --- */
