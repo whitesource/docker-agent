@@ -402,9 +402,16 @@ public class DockerAgent {
 
     private boolean imageExists(DockerClient dockerClient, String dockerImage) {
         List<Image> images = dockerClient.listImagesCmd().exec();
-        for (Image image : images) {
-            if (image.getRepoTags().length > 0 && image.getRepoTags()[0].startsWith(dockerImage))
-                return true;
+        if (!images.isEmpty() && StringUtils.isNotEmpty(dockerImage)) {
+            for (Image image : images) {
+                if (image.getRepoTags() != null && image.getRepoTags().length > 0) {
+                    if (image.getRepoTags()[0].startsWith(dockerImage)) {
+                        return true;
+                    }
+                }
+            }
+        } else {
+            logger.info("You don't have any installed images");
         }
         return false;
     }
