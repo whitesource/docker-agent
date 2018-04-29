@@ -328,11 +328,15 @@ public class DockerAgent {
 
                     // scan files
                     String extractPath = containerTarExtractDir.getPath();
+                    Map<String, Set<String>> appPathToDependenciesDirs = new HashMap<>();
+                    Set<String> dirs = new HashSet<>();
+                    dirs.add(extractPath);
+                    appPathToDependenciesDirs.put(FSAConfiguration.DEFAULT_KEY, dirs);
                     List<DependencyInfo> dependencyInfos = new FileSystemScanner(fsaConfiguration.getResolver(), fsaConfiguration.getAgent(), false).createProjects(
-                            Arrays.asList(extractPath), false, fsaConfiguration.getAgent().getIncludes(), fsaConfiguration.getAgent().getExcludes(),
+                            Arrays.asList(extractPath), appPathToDependenciesDirs, false, fsaConfiguration.getAgent().getIncludes(), fsaConfiguration.getAgent().getExcludes(),
                             fsaConfiguration.getAgent().getGlobCaseSensitive(), archiveExtractionDepth, FileExtensions.ARCHIVE_INCLUDES,
                             FileExtensions.ARCHIVE_EXCLUDES, false, fsaConfiguration.getAgent().isFollowSymlinks(),
-                            new ArrayList<String>(), PARTIAL_SHA1_MATCH);
+                            new ArrayList<>(), PARTIAL_SHA1_MATCH);
 
                     // modify file paths relative to the container
                     for (DependencyInfo dependencyInfo : dependencyInfos) {

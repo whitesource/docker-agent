@@ -6,7 +6,7 @@
 
     <groupId>org.whitesource</groupId>
     <artifactId>whitesource-docker-agent</artifactId>
-    <version>18.3.1-SNAPSHOT</version>
+    <version>18.4.1</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -39,7 +39,7 @@
         <dependency>
             <groupId>org.whitesource</groupId>
             <artifactId>whitesource-fs-agent</artifactId>
-            <version>18.3.1</version>
+            <version>18.4.1</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.eclipse.jgit</groupId>
