@@ -1,12 +1,12 @@
 /**
  * Copyright (C) 2016 WhiteSource Ltd.
- *
+ * <p>
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- *
+ * <p>
  * http://www.apache.org/licenses/LICENSE-2.0
- *
+ * <p>
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -39,11 +39,11 @@ public class ContainerPackageExtractor {
 
     private static final Logger logger = LoggerFactory.getLogger(DockerAgent.class);
 
-    private static final String[] DEBIAN_PACKAGES_LIST_COMMAND = new String[] { "dpkg", "-l" };
-    private static final String[] RPM_PACKAGES_LIST_COMMAND = new String[] { "rpm", "-qa" };
-    private static final String[] ALPINE_PACKAGES_LIST_COMMAND = new String[] { "apk", "-vv", "info" };
-    private static final String[] ARCH_LINUX_PACKAGES_LIST_COMMAND = new String[] { "pacman", "-Q" };
-    private static final String[] ARCH_LINUX_ARCHITECTURE_COMMAND = new String[] { "uname", "-m" };
+    private static final String[] DEBIAN_PACKAGES_LIST_COMMAND = new String[]{"dpkg", "-l"};
+    private static final String[] RPM_PACKAGES_LIST_COMMAND = new String[]{"rpm", "-qa"};
+    private static final String[] ALPINE_PACKAGES_LIST_COMMAND = new String[]{"apk", "-vv", "info"};
+    private static final String[] ARCH_LINUX_PACKAGES_LIST_COMMAND = new String[]{"pacman", "-Q"};
+    private static final String[] ARCH_LINUX_ARCHITECTURE_COMMAND = new String[]{"uname", "-m"};
 
     // reference: http://askubuntu.com/questions/18804/what-do-the-various-dpkg-flags-like-ii-rc-mean/18807#18807
     private static final String DEBIAN_INSTALLED_PACKAGE_PREFIX = "ii";
@@ -133,6 +133,7 @@ public class ContainerPackageExtractor {
      * Get all RPM packages by executing "rpm -qa" in a container and parsing the output.
      */
     public static Collection<DependencyInfo> extractRpmPackages(DockerClient dockerClient, String containerId) {
+        InputStream inputStream = null;
         Collection<DependencyInfo> packages = new LinkedList<>();
 
         // create execute command
@@ -142,12 +143,19 @@ public class ContainerPackageExtractor {
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         try {
+            Process process = Runtime.getRuntime().exec(RPM_PACKAGES_LIST_COMMAND);
+            inputStream = process.getInputStream();
+            if (inputStream.read() == -1) {
+                return packages;
+            }
             dockerClient.execStartCmd(execResponse.getId())
                     .withDetach(false).withTty(false)
                     .withExecId(execResponse.getId())
                     .exec(new ExecStartResultCallback(outputStream, System.err)).awaitCompletion();
         } catch (InterruptedException e) {
             logger.warn("Error writing output: {}", e.getMessage());
+        } catch (IOException e) {
+            e.printStackTrace();
         }
 
         // parse rpm packages
@@ -159,7 +167,7 @@ public class ContainerPackageExtractor {
             }
         }
 
-        try{
+        try {
             outputStream.close();
         } catch (IOException e) {
             logger.warn("Error reading output: {}", e.getMessage());
