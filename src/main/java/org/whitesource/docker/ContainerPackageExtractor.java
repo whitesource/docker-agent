@@ -155,7 +155,7 @@ public class ContainerPackageExtractor {
         } catch (InterruptedException e) {
             logger.warn("Error writing output: {}", e.getMessage());
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.warn("Can't run rpm command: {}", e.getMessage());
         }
 
         // parse rpm packages
