@@ -4,7 +4,7 @@
 
     <groupId>org.whitesource</groupId>
     <artifactId>whitesource-docker-agent</artifactId>
-    <version>18.4.2-SNAPSHOT</version>
+    <version>18.4.2</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -29,7 +29,7 @@
         <connection>scm:git:git@github.com:whitesource/docker-agent.git</connection>
         <developerConnection>scm:git:git@github.com:whitesource/docker-agent.git</developerConnection>
         <url>git@github.com:whitesource/docker-agent.git</url>
-        <tag>HEAD</tag>
+        <tag>v18.4.2</tag>
     </scm>
     <issueManagement>
         <url>https://github.com/whitesource/docker-agent/issues</url>
