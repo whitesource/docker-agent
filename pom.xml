@@ -99,7 +99,7 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-compress</artifactId>
-            <version>1.10</version>
+            <version>1.18</version>
         </dependency>
 
         <!-- Logging -->
@@ -191,7 +191,7 @@
         <profile>
             <id>ci-build</id>
             <activation>
-                <activeByDefault>false</activeByDefault>
+                <activeByDefault>falsorg.apache.commonse</activeByDefault>
             </activation>
             <build>
                 <plugins>
